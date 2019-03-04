@@ -32,6 +32,12 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
+  name = "github.com/blang/semver"
+  packages = ["."]
+  revision = "2ee87856327ba09384cabd113bc6b5d174e9ec0f"
+  version = "v3.5.1"
+
+[[projects]]
   name = "github.com/coreos/prometheus-operator"
   packages = [
     "pkg/apis/monitoring",
@@ -56,6 +62,12 @@
   ]
   revision = "85d198d05a92d31823b852b4a5928114912e8949"
   version = "v2.9.0"
+
+[[projects]]
+  name = "github.com/evanphx/json-patch"
+  packages = ["."]
+  revision = "72bf35d0ff611848c1dc9df0f976c81192392fa5"
+  version = "v4.1.0"
 
 [[projects]]
   name = "github.com/ghodss/yaml"
@@ -203,6 +215,12 @@
   version = "v1.1.5"
 
 [[projects]]
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  revision = "f55edac94c9bbba5d6182a4be46d86a2c9b5b50e"
+  version = "v1.0.2"
+
+[[projects]]
   branch = "master"
   name = "github.com/mailru/easyjson"
   packages = [
@@ -235,6 +253,59 @@
   packages = ["."]
   revision = "4b7aa43c6742a2c18fdef89dd197aaae7dac7ccd"
   version = "1.0.1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/openshift/api"
+  packages = [
+    "apps/v1",
+    "authorization/v1",
+    "build/v1",
+    "image",
+    "image/docker10",
+    "image/dockerpre012",
+    "image/v1",
+    "network/v1",
+    "oauth/v1",
+    "pkg/serialization",
+    "project/v1",
+    "quota/v1",
+    "route/v1",
+    "security/v1",
+    "template/v1",
+    "user/v1"
+  ]
+  revision = "ad60feaa9147fd1ba910f6cbbf3fccee48ac9f17"
+
+[[projects]]
+  name = "github.com/openshift/origin"
+  packages = [
+    "pkg/api/apihelpers",
+    "pkg/api/legacygroupification",
+    "pkg/apps/apis/apps",
+    "pkg/authorization/apis/authorization",
+    "pkg/authorization/apis/authorization/internal/serviceaccount",
+    "pkg/build/apis/build",
+    "pkg/image/apis/image",
+    "pkg/image/apis/image/docker10",
+    "pkg/image/apis/image/reference",
+    "pkg/image/internal/digest",
+    "pkg/image/internal/reference",
+    "pkg/network/apis/network",
+    "pkg/oauth/apis/oauth",
+    "pkg/project/apis/project",
+    "pkg/quota/apis/quota",
+    "pkg/route/apis/route",
+    "pkg/security/apis/security",
+    "pkg/template/apis/template",
+    "pkg/template/generator",
+    "pkg/template/templateprocessing",
+    "pkg/user/apis/user",
+    "pkg/util",
+    "pkg/util/stringreplace"
+  ]
+  revision = "0cbc58b117403b9d9169dbafdfac59ef104bb997"
+  version = "v3.11.0"
 
 [[projects]]
   name = "github.com/operator-framework/operator-sdk"
@@ -319,6 +390,12 @@
   ]
   revision = "1cf9852c553c5b7da2d5a4a091129a7822fed0c9"
   version = "v1.2.2"
+
+[[projects]]
+  name = "github.com/sirupsen/logrus"
+  packages = ["."]
+  revision = "e1e72e9de974bd926e5c56f83753fba2df402ce5"
+  version = "v1.3.0"
 
 [[projects]]
   name = "github.com/spf13/afero"
@@ -526,12 +603,16 @@
 [[projects]]
   name = "k8s.io/apimachinery"
   packages = [
+    "pkg/api/equality",
     "pkg/api/errors",
     "pkg/api/meta",
     "pkg/api/resource",
+    "pkg/api/validation",
+    "pkg/api/validation/path",
     "pkg/apis/meta/internalversion",
     "pkg/apis/meta/v1",
     "pkg/apis/meta/v1/unstructured",
+    "pkg/apis/meta/v1/validation",
     "pkg/apis/meta/v1beta1",
     "pkg/conversion",
     "pkg/conversion/queryparams",
@@ -620,6 +701,7 @@
     "rest",
     "rest/watch",
     "restmapper",
+    "testing",
     "third_party/forked/golang/template",
     "tools/auth",
     "tools/cache",
@@ -709,6 +791,20 @@
   revision = "0cf8f7e6ed1d2e3d47d02e3b6e559369af24d803"
 
 [[projects]]
+  name = "k8s.io/kubernetes"
+  packages = [
+    "pkg/apis/apps",
+    "pkg/apis/autoscaling",
+    "pkg/apis/core",
+    "pkg/apis/extensions",
+    "pkg/apis/networking",
+    "pkg/apis/policy",
+    "pkg/apis/rbac"
+  ]
+  revision = "c27b913fddd1a6c480c229191a087698aa92f0b1"
+  version = "v1.13.4"
+
+[[projects]]
   name = "sigs.k8s.io/controller-runtime"
   packages = [
     "pkg/cache",
@@ -716,15 +812,26 @@
     "pkg/client",
     "pkg/client/apiutil",
     "pkg/client/config",
+    "pkg/client/fake",
+    "pkg/controller",
+    "pkg/event",
+    "pkg/handler",
+    "pkg/internal/controller",
+    "pkg/internal/controller/metrics",
     "pkg/internal/recorder",
     "pkg/leaderelection",
     "pkg/manager",
     "pkg/metrics",
     "pkg/patch",
+    "pkg/predicate",
+    "pkg/reconcile",
     "pkg/recorder",
     "pkg/runtime/inject",
     "pkg/runtime/log",
+    "pkg/runtime/scheme",
     "pkg/runtime/signals",
+    "pkg/source",
+    "pkg/source/internal",
     "pkg/webhook/admission",
     "pkg/webhook/admission/types",
     "pkg/webhook/internal/metrics",
@@ -755,6 +862,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "20cbde5ff0397a0cb926db8da9255e21bee2dc8b3ed10fdc67ba48d1385494ba"
+  inputs-digest = "340f0631e3af9ef8f203f5d468908b8755ca64a2286bd61bf494e5e508b38f61"
   solver-name = "gps-cdcl"
   solver-version = 1

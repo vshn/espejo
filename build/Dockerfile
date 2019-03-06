@@ -1,15 +1,22 @@
-FROM alpine:3.8
+FROM docker.io/library/golang:1.11 as builder
 
-ENV OPERATOR=/usr/local/bin/espejo \
-    USER_UID=1001 \
-    USER_NAME=espejo
+WORKDIR /go/src/github.com/vshn/espejo
 
-# install operator binary
-COPY build/_output/bin/espejo ${OPERATOR}
+COPY ./ ./
 
-COPY build/bin /usr/local/bin
-RUN  /usr/local/bin/user_setup
+RUN go test \
+         -race \
+         -failfast \
+         -v ./...
 
-ENTRYPOINT ["/usr/local/bin/entrypoint"]
+RUN CGO_ENABLED=0 GOOS=linux go build -a -v -installsuffix nocgo -ldflags '-extldflags "-static"' \
+      -o espejo cmd/manager/main.go
 
-USER ${USER_UID}
+FROM scratch
+
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /go/src/github.com/vshn/espejo/espejo /bin/
+
+USER 1001
+
+ENTRYPOINT ["/bin/espejo"]

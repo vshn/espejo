@@ -1,0 +1,54 @@
+apiVersion: sync.appuio.ch/v1alpha1
+kind: SyncConfig
+metadata:
+  name: example
+spec:
+  forceRecreate: true
+  namespaceSelector:
+    labelSelector:
+      matchExpressions:
+      - key: customer
+        operator: Exists
+      matchLabels:
+        some-label: value
+    matchNames:
+    - myproject
+  items:
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: glusterfs-cluster
+    spec:
+      type: ClusterIP
+      clusterIP: None
+      ports:
+      - port: 49152
+        targetPort: 49152
+        protocol: TCP
+  - apiVersion: v1
+    kind: Endpoints
+    metadata:
+      name: glusterfs-cluster
+    subsets:
+    - addresses:
+      - ip: 172.28.54.121
+      - ip: 172.28.54.122
+      - ip: 172.28.54.123
+      ports:
+      - port: 49152
+        protocol: TCP
+  - apiVersion: extensions/v1beta1
+    kind: NetworkPolicy
+    metadata:
+      name: allow-from-same-namespace
+    spec:
+      ingress:
+      - from:
+        - podSelector: {}
+      podSelector: {}
+      policyTypes:
+      - Ingress
+  deleteItems:
+    - apiVersion: v1
+      kind: ConfigMap
+      name: some-name

@@ -35,7 +35,7 @@ func (r *ReconcileSyncConfig) handle(ctx context.Context, syncConfig *v1alpha1.S
 			deleteObj := deleteItem.ToDeleteObj(targetNamespace.Name)
 
 			err = r.client.Delete(ctx, deleteObj, client.DeleteOptionFunc(func(d *client.DeleteOptions) {
-				option := metav1.DeletePropagationBackground
+				option := metav1.DeletePropagationOrphan
 				d.PropagationPolicy = &option
 			}))
 			if err != nil {

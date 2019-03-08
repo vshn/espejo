@@ -14,6 +14,7 @@ import (
 	ctx "context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/vshn/espejo/pkg/apis/sync/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,13 +31,9 @@ func TestProcessTemplate(t *testing.T) {
 
 	processTemplate(obj, "test-name")
 
-	if obj.GetNamespace() != "name-with-suffix-test-name" {
-		t.Errorf("Name was not replaced: '%v'", obj.GetNamespace())
-	}
-	test, ok := obj.GetAnnotations()["replace"]
-	if !ok || test != "test-name" {
-		t.Errorf("Annotation was not replaced: '%v'", test)
-	}
+	assert.Equal(t, obj.GetNamespace(), "name-with-suffix-test-name", "Namespace was not replaced")
+
+	assert.Equal(t, obj.GetAnnotations()["replace"], "test-name", "Annotation was not replaced")
 }
 
 func TestGetNamespaces(t *testing.T) {
@@ -65,14 +62,12 @@ func TestGetNamespaces(t *testing.T) {
 			},
 		},
 	}
-	testTable := []struct {
-		name       string
+	testTable := map[string]struct {
 		namespaces []runtime.Object
 		syncConfig *v1alpha1.SyncConfig
 		matchCount int
 	}{
-		{
-			"Match single name",
+		"Match single name": {
 			testNamespaces,
 			&v1alpha1.SyncConfig{
 				Spec: v1alpha1.SyncConfigSpec{
@@ -83,8 +78,7 @@ func TestGetNamespaces(t *testing.T) {
 			},
 			1,
 		},
-		{
-			"Match Exists expression",
+		"Match Exists expression": {
 			testNamespaces,
 			&v1alpha1.SyncConfig{
 				Spec: v1alpha1.SyncConfigSpec{
@@ -99,8 +93,7 @@ func TestGetNamespaces(t *testing.T) {
 			},
 			3,
 		},
-		{
-			"Match In expression",
+		"Match In expression": {
 			testNamespaces,
 			&v1alpha1.SyncConfig{
 				Spec: v1alpha1.SyncConfigSpec{
@@ -115,8 +108,7 @@ func TestGetNamespaces(t *testing.T) {
 			},
 			2,
 		},
-		{
-			"Match NotIn expression",
+		"Match NotIn expression": {
 			testNamespaces,
 			&v1alpha1.SyncConfig{
 				Spec: v1alpha1.SyncConfigSpec{
@@ -131,8 +123,7 @@ func TestGetNamespaces(t *testing.T) {
 			},
 			2,
 		},
-		{
-			"Match label expression",
+		"Match label expression": {
 			testNamespaces,
 			&v1alpha1.SyncConfig{
 				Spec: v1alpha1.SyncConfigSpec{
@@ -145,8 +136,7 @@ func TestGetNamespaces(t *testing.T) {
 			},
 			1,
 		},
-		{
-			"Match all",
+		"Match all": {
 			testNamespaces,
 			&v1alpha1.SyncConfig{
 				Spec: v1alpha1.SyncConfigSpec{
@@ -159,8 +149,7 @@ func TestGetNamespaces(t *testing.T) {
 			},
 			len(testNamespaces),
 		},
-		{
-			"Match name and label",
+		"Match name and label": {
 			testNamespaces,
 			&v1alpha1.SyncConfig{
 				Spec: v1alpha1.SyncConfigSpec{
@@ -174,8 +163,7 @@ func TestGetNamespaces(t *testing.T) {
 			},
 			3,
 		},
-		{
-			"Match none",
+		"Match none": {
 			testNamespaces,
 			&v1alpha1.SyncConfig{
 				Spec: v1alpha1.SyncConfigSpec{
@@ -187,16 +175,14 @@ func TestGetNamespaces(t *testing.T) {
 	}
 	r := &ReconcileSyncConfig{}
 	request := reconcile.Request{}
-	for _, testCase := range testTable {
-		t.Run(testCase.name, func(t *testing.T) {
+	for name, testCase := range testTable {
+		t.Run(name, func(t *testing.T) {
 			r.client = fake.NewFakeClient(testCase.namespaces...)
 			namespaces, err := r.getNamespaces(ctx.TODO(), testCase.syncConfig, request)
 			if err != nil {
 				t.Error(err)
 			}
-			if len(namespaces) != testCase.matchCount {
-				t.Errorf("Found %d namespaces, expected %d", len(namespaces), testCase.matchCount)
-			}
+			assert.Equal(t, len(namespaces), testCase.matchCount, "Wrong number of matched namespaces")
 		})
 	}
 }

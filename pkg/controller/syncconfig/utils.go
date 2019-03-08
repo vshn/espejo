@@ -12,6 +12,7 @@ package syncconfig
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	templateapi "github.com/openshift/origin/pkg/template/apis/template"
@@ -26,6 +27,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+type syncError struct {
+	internalErrors []error
+}
+
+func (e *syncError) Error() string {
+	if e.len() > 0 {
+		errorStrings := make([]string, len(e.internalErrors))
+		for _, e := range e.internalErrors {
+			errorStrings = append(errorStrings, e.Error())
+		}
+		return fmt.Sprintf(strings.Join(errorStrings, "\n"))
+	}
+	return ""
+}
+
+func (e *syncError) append(err error) {
+	e.internalErrors = append(e.internalErrors, err)
+}
+
+func (e *syncError) len() int {
+	return len(e.internalErrors)
+}
 
 func recreateOject(ctx context.Context, unstructObj *unstructured.Unstructured, c client.Client) error {
 	unstructObj.SetResourceVersion("")

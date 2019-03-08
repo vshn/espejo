@@ -12,9 +12,8 @@ package syncconfig
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/vshn/espejo/pkg/apis/sync/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,12 +24,12 @@ import (
 )
 
 func (r *ReconcileSyncConfig) handle(ctx context.Context, syncConfig *v1alpha1.SyncConfig, request reconcile.Request) error {
+	allErrors := &syncError{}
 	namespaces, err := r.getNamespaces(ctx, syncConfig, request)
 	if err != nil {
-		log.Error(err, "Error getting namespaces")
-		return err
+		allErrors.append(err)
 	}
-	var errors []error
+
 	for _, targetNamespace := range namespaces {
 		for _, deleteItem := range syncConfig.Spec.DeleteItems {
 			deleteObj := &unstructured.Unstructured{}
@@ -45,8 +44,7 @@ func (r *ReconcileSyncConfig) handle(ctx context.Context, syncConfig *v1alpha1.S
 			}))
 			if err != nil {
 				if !apierrors.IsNotFound(err) {
-					log.Error(err, "Error deleting object", getLoggingKeysAndValues(deleteObj)...)
-					errors = append(errors, err)
+					allErrors.append(errors.Wrap(err, "Error deleting object"))
 				}
 			} else {
 				log.Info("Deleted", getLoggingKeysAndValues(deleteObj)...)
@@ -58,16 +56,14 @@ func (r *ReconcileSyncConfig) handle(ctx context.Context, syncConfig *v1alpha1.S
 
 			err := processTemplate(unstructObj, targetNamespace.Name)
 			if err != nil {
-				log.Error(err, "Error processing template", getLoggingKeysAndValues(unstructObj)...)
-				errors = append(errors, err)
+				allErrors.append(errors.Wrap(err, "Error processing template"))
 				continue
 			}
 
 			err = r.client.Create(ctx, unstructObj)
 			if err != nil {
 				if !apierrors.IsAlreadyExists(err) {
-					log.Error(err, "Error creating", getLoggingKeysAndValues(unstructObj)...)
-					errors = append(errors, err)
+					allErrors.append(errors.Wrap(err, "Error creating"))
 					continue
 				}
 				existingObj := &unstructured.Unstructured{}
@@ -79,7 +75,7 @@ func (r *ReconcileSyncConfig) handle(ctx context.Context, syncConfig *v1alpha1.S
 						Namespace: unstructObj.GetNamespace()},
 					existingObj)
 				if err != nil {
-					errors = append(errors, err)
+					allErrors.append(err)
 					continue
 				}
 				unstructObj.SetResourceVersion(existingObj.GetResourceVersion())
@@ -89,12 +85,10 @@ func (r *ReconcileSyncConfig) handle(ctx context.Context, syncConfig *v1alpha1.S
 						log.Info("Recreating", getLoggingKeysAndValues(unstructObj)...)
 						err = recreateOject(ctx, unstructObj, r.client)
 						if err != nil {
-							log.Error(err, "Error recreating", getLoggingKeysAndValues(unstructObj)...)
-							errors = append(errors, err)
+							allErrors.append(err)
 						}
 					} else {
-						log.Error(err, "Error updating", getLoggingKeysAndValues(unstructObj)...)
-						errors = append(errors, err)
+						allErrors.append(err)
 					}
 				} else {
 					log.Info("Updated", getLoggingKeysAndValues(unstructObj)...)
@@ -104,12 +98,8 @@ func (r *ReconcileSyncConfig) handle(ctx context.Context, syncConfig *v1alpha1.S
 			}
 		}
 	}
-	if len(errors) > 0 {
-		errorStrings := make([]string, len(errors))
-		for _, e := range errors {
-			errorStrings = append(errorStrings, e.Error())
-		}
-		return fmt.Errorf(strings.Join(errorStrings, "\n"))
+	if allErrors.len() > 0 {
+		return error(allErrors)
 	}
 
 	return nil

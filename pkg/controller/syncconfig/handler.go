@@ -32,11 +32,7 @@ func (r *ReconcileSyncConfig) handle(ctx context.Context, syncConfig *v1alpha1.S
 
 	for _, targetNamespace := range namespaces {
 		for _, deleteItem := range syncConfig.Spec.DeleteItems {
-			deleteObj := &unstructured.Unstructured{}
-			deleteObj.SetAPIVersion(deleteItem.APIVersion)
-			deleteObj.SetKind(deleteItem.Kind)
-			deleteObj.SetName(deleteItem.Name)
-			deleteObj.SetNamespace(targetNamespace.Name)
+			deleteObj := deleteItem.ToDeleteObj(targetNamespace.Name)
 
 			err = r.client.Delete(ctx, deleteObj, client.DeleteOptionFunc(func(d *client.DeleteOptions) {
 				option := metav1.DeletePropagationBackground

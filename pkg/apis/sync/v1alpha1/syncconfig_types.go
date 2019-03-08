@@ -67,3 +67,14 @@ type SyncConfigList struct {
 func init() {
 	SchemeBuilder.Register(&SyncConfig{}, &SyncConfigList{})
 }
+
+// ToDeleteObj creates a k8s Unstructured object based on a DeleteMeta obj
+func (d *DeleteMeta) ToDeleteObj(namespace string) *unstructured.Unstructured {
+	deleteObj := &unstructured.Unstructured{}
+	deleteObj.SetAPIVersion(d.APIVersion)
+	deleteObj.SetKind(d.Kind)
+	deleteObj.SetName(d.Name)
+	deleteObj.SetNamespace(namespace)
+
+	return deleteObj
+}

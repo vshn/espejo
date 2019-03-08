@@ -109,12 +109,7 @@ func (r *ReconcileSyncConfig) getNamespaces(ctx context.Context, syncConfig *v1a
 		return []corev1.Namespace{}, err
 	}
 
-	namespaces := []corev1.Namespace{}
-	nameLookup := make(map[string]bool, len(syncConfig.Spec.NamespaceSelector.MatchNames))
-
-	for _, name := range syncConfig.Spec.NamespaceSelector.MatchNames {
-		nameLookup[name] = true
-	}
+	namespaces := filterNamespacesByNames(syncConfig.Spec.NamespaceSelector.MatchNames, namespaceList.Items)
 
 	selector, err := convertSelector(syncConfig.Spec.NamespaceSelector.LabelSelector)
 	if err != nil {
@@ -122,12 +117,27 @@ func (r *ReconcileSyncConfig) getNamespaces(ctx context.Context, syncConfig *v1a
 	}
 
 	for _, ns := range namespaceList.Items {
-		_, found := nameLookup[ns.Name]
-		if found || selector.Matches(labels.Set(ns.GetLabels())) {
+		if selector.Matches(labels.Set(ns.GetLabels())) {
 			namespaces = append(namespaces, ns)
 		}
 	}
 	return namespaces, err
+}
+
+func filterNamespacesByNames(names []string, namespaceList []corev1.Namespace) []corev1.Namespace {
+	namespaces := []corev1.Namespace{}
+	nameLookup := make(map[string]bool, len(names))
+
+	for _, name := range names {
+		nameLookup[name] = true
+	}
+
+	for _, ns := range namespaceList {
+		if _, found := nameLookup[ns.Name]; found {
+			namespaces = append(namespaces, ns)
+		}
+	}
+	return namespaces
 }
 
 func convertSelector(labelSelector *metav1.LabelSelector) (labels.Selector, error) {

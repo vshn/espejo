@@ -1,15 +1,32 @@
-FROM alpine:3.8
+# === Authors
+#
+# Simon Rüegg <simon.ruegg@vshn.ch>
+#
+# === License
+#
+# Copyright (c) 2019, VSHN AG, info@vshn.ch
+# Licensed under "BSD 3-Clause". See LICENSE file.
+#
 
-ENV OPERATOR=/usr/local/bin/espejo \
-    USER_UID=1001 \
-    USER_NAME=espejo
+FROM docker.io/library/golang:1.11 as builder
 
-# install operator binary
-COPY build/_output/bin/espejo ${OPERATOR}
+WORKDIR /go/src/github.com/vshn/espejo
 
-COPY build/bin /usr/local/bin
-RUN  /usr/local/bin/user_setup
+COPY ./ ./
 
-ENTRYPOINT ["/usr/local/bin/entrypoint"]
+RUN go test \
+         -race \
+         -failfast \
+         -v ./...
 
-USER ${USER_UID}
+RUN CGO_ENABLED=0 GOOS=linux go build -a -v -installsuffix nocgo -ldflags '-extldflags "-static"' \
+      -o espejo cmd/manager/main.go
+
+FROM scratch
+
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /go/src/github.com/vshn/espejo/espejo /bin/
+
+USER 1001
+
+ENTRYPOINT ["/bin/espejo"]

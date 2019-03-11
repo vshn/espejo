@@ -35,5 +35,11 @@ rules:
   resources:
   - servicemonitors
   verbs:
-  - "get"
-  - "create"
+  - get
+  - create
+- apiGroups:
+  - sync.appuio.ch
+  resources:
+  - '*'
+  verbs:
+  - '*'

@@ -12,8 +12,9 @@ package syncconfig
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pkg/errors"
+	"github.com/go-logr/logr"
 	"github.com/vshn/espejo/pkg/apis/sync/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,11 +24,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func (r *ReconcileSyncConfig) handle(ctx context.Context, syncConfig *v1alpha1.SyncConfig, request reconcile.Request) error {
-	allErrors := &syncError{}
+func (r *ReconcileSyncConfig) handle(ctx context.Context, syncConfig *v1alpha1.SyncConfig, request reconcile.Request, reqLogger logr.Logger) error {
+	errCount := 0
 	namespaces, err := r.getNamespaces(ctx, syncConfig, request)
 	if err != nil {
-		allErrors.append(err)
+		errCount++
+		reqLogger.Error(err, "Error getting namespaces")
 	}
 
 	for _, targetNamespace := range namespaces {
@@ -40,10 +42,11 @@ func (r *ReconcileSyncConfig) handle(ctx context.Context, syncConfig *v1alpha1.S
 			}))
 			if err != nil {
 				if !apierrors.IsNotFound(err) {
-					allErrors.append(errors.Wrap(err, "Error deleting object"))
+					errCount++
+					reqLogger.Error(err, "Error deleting object", getLoggingKeysAndValues(deleteObj)...)
 				}
 			} else {
-				log.Info("Deleted", getLoggingKeysAndValues(deleteObj)...)
+				reqLogger.Info("Deleted", getLoggingKeysAndValues(deleteObj)...)
 			}
 		}
 		for _, item := range syncConfig.Spec.Items {
@@ -52,14 +55,16 @@ func (r *ReconcileSyncConfig) handle(ctx context.Context, syncConfig *v1alpha1.S
 
 			err := processTemplate(unstructObj, targetNamespace.Name)
 			if err != nil {
-				allErrors.append(errors.Wrap(err, "Error processing template"))
+				errCount++
+				reqLogger.Error(err, "Error processing template", getLoggingKeysAndValues(unstructObj)...)
 				continue
 			}
 
 			err = r.client.Create(ctx, unstructObj)
 			if err != nil {
 				if !apierrors.IsAlreadyExists(err) {
-					allErrors.append(errors.Wrap(err, "Error creating"))
+					errCount++
+					reqLogger.Error(err, "Error creating", getLoggingKeysAndValues(unstructObj)...)
 					continue
 				}
 				existingObj := &unstructured.Unstructured{}
@@ -71,31 +76,33 @@ func (r *ReconcileSyncConfig) handle(ctx context.Context, syncConfig *v1alpha1.S
 						Namespace: unstructObj.GetNamespace()},
 					existingObj)
 				if err != nil {
-					allErrors.append(err)
+					errCount++
 					continue
 				}
 				unstructObj.SetResourceVersion(existingObj.GetResourceVersion())
 				err = r.client.Update(ctx, unstructObj)
 				if err != nil {
 					if apierrors.IsInvalid(err) && syncConfig.Spec.ForceRecreate {
-						log.Info("Recreating", getLoggingKeysAndValues(unstructObj)...)
+						reqLogger.Info("Recreating", getLoggingKeysAndValues(unstructObj)...)
 						err = recreateOject(ctx, unstructObj, r.client)
 						if err != nil {
-							allErrors.append(err)
+							errCount++
+							reqLogger.Error(err, "Error recreating", getLoggingKeysAndValues(unstructObj)...)
 						}
 					} else {
-						allErrors.append(err)
+						errCount++
+						reqLogger.Error(err, "Error updating", getLoggingKeysAndValues(unstructObj)...)
 					}
 				} else {
-					log.Info("Updated", getLoggingKeysAndValues(unstructObj)...)
+					reqLogger.Info("Updated", getLoggingKeysAndValues(unstructObj)...)
 				}
 			} else {
-				log.Info("Created", getLoggingKeysAndValues(unstructObj)...)
+				reqLogger.Info("Created", getLoggingKeysAndValues(unstructObj)...)
 			}
 		}
 	}
-	if allErrors.len() > 0 {
-		return error(allErrors)
+	if errCount > 0 {
+		return fmt.Errorf("%v errors occured during reconcile loop", errCount)
 	}
 
 	return nil

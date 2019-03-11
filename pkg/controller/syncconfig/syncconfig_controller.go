@@ -90,7 +90,7 @@ func (r *ReconcileSyncConfig) Reconcile(request reconcile.Request) (reconcile.Re
 		return reconcile.Result{}, err
 	}
 
-	err = r.handle(ctx, instance, request)
+	err = r.handle(ctx, instance, request, reqLogger)
 
 	result := reconcile.Result{
 		RequeueAfter: 10 * time.Second,

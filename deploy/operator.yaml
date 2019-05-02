@@ -16,7 +16,7 @@ spec:
       containers:
         - name: espejo
           # Replace this with the built image name
-          image: docker.io/vshn/espejo:v0.0.1
+          image: docker.io/vshn/espejo:v0.0.2
           command:
           - espejo
           imagePullPolicy: Always

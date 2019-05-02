@@ -18,6 +18,7 @@ package upgrade
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -165,28 +166,13 @@ func (spm *KubeStaticPodPathManager) CleanupDirs() error {
 	return nil
 }
 
-func upgradeComponent(component string, waiter apiclient.Waiter, pathMgr StaticPodPathManager, cfg *kubeadmapi.InitConfiguration, beforePodHash string, recoverManifests map[string]string, isTLSUpgrade bool) error {
+func upgradeComponent(component string, waiter apiclient.Waiter, pathMgr StaticPodPathManager, cfg *kubeadmapi.InitConfiguration, beforePodHash string, recoverManifests map[string]string) error {
 	// Special treatment is required for etcd case, when rollbackOldManifests should roll back etcd
 	// manifests only for the case when component is Etcd
 	recoverEtcd := false
 	waitForComponentRestart := true
 	if component == constants.Etcd {
 		recoverEtcd = true
-	}
-	if isTLSUpgrade {
-		// We currently depend on getting the Etcd mirror Pod hash from the KubeAPIServer;
-		// Upgrading the Etcd protocol takes down the apiserver, so we can't verify component restarts if we restart Etcd independently.
-		// Skip waiting for Etcd to restart and immediately move on to updating the apiserver.
-		if component == constants.Etcd {
-			waitForComponentRestart = false
-		}
-		// Normally, if an Etcd upgrade is successful, but the apiserver upgrade fails, Etcd is not rolled back.
-		// In the case of a TLS upgrade, the old KubeAPIServer config is incompatible with the new Etcd confg, so we rollback Etcd
-		// if the APIServer upgrade fails.
-		if component == constants.KubeAPIServer {
-			recoverEtcd = true
-			fmt.Printf("[upgrade/staticpods] The %s manifest will be restored if component %q fails to upgrade\n", constants.Etcd, component)
-		}
 	}
 
 	if err := renewCerts(cfg, component); err != nil {
@@ -252,7 +238,7 @@ func upgradeComponent(component string, waiter apiclient.Waiter, pathMgr StaticP
 }
 
 // performEtcdStaticPodUpgrade performs upgrade of etcd, it returns bool which indicates fatal error or not and the actual error.
-func performEtcdStaticPodUpgrade(client clientset.Interface, waiter apiclient.Waiter, pathMgr StaticPodPathManager, cfg *kubeadmapi.InitConfiguration, recoverManifests map[string]string, isTLSUpgrade bool, oldEtcdClient, newEtcdClient etcdutil.ClusterInterrogator) (bool, error) {
+func performEtcdStaticPodUpgrade(client clientset.Interface, waiter apiclient.Waiter, pathMgr StaticPodPathManager, cfg *kubeadmapi.InitConfiguration, recoverManifests map[string]string, oldEtcdClient, newEtcdClient etcdutil.ClusterInterrogator) (bool, error) {
 	// Add etcd static pod spec only if external etcd is not configured
 	if cfg.Etcd.External != nil {
 		return false, errors.New("external etcd detected, won't try to change any etcd state")
@@ -278,16 +264,30 @@ func performEtcdStaticPodUpgrade(client clientset.Interface, waiter apiclient.Wa
 	}
 
 	// gets the etcd version of the local/stacked etcd member running on the current machine
+	// the version is read from che cluster; this should take into account that there are still
+	// around old etcd manifest with etcd listening on local host only
+	// N.B. taking care of old etcd manifests is necessary only in v1.14; starting from v1.15 all the etcd manifest should have 2 endpoints
 	currentEtcdVersions, err := oldEtcdClient.GetClusterVersions()
 	if err != nil {
 		return true, errors.Wrap(err, "failed to retrieve the current etcd version")
 	}
-	currentEtcdVersionStr, ok := currentEtcdVersions[etcdutil.GetClientURL(cfg)]
-	if !ok {
-		fmt.Println(currentEtcdVersions)
-		return true, errors.Wrap(err, "failed to retrieve the current etcd version")
-	}
 
+	var ok bool
+	var currentEtcdVersionStr string
+	if etcdutil.IsEtcdListeningOnLocalHostOnly() {
+		// in case of etcd listening on local host only, there could be only etcd member in the cluster, and so
+		// also in the currentEtcdVersions map; we are using a for to take the value of the first element
+		for _, v := range currentEtcdVersions {
+			currentEtcdVersionStr = v
+			break
+		}
+	} else {
+		// otherwise take the etcd version of the etcd member hosted on the current machine
+		currentEtcdVersionStr, ok = currentEtcdVersions[etcdutil.GetClientURL(&cfg.LocalAPIEndpoint)]
+		if !ok {
+			return true, errors.Wrap(err, "failed to retrieve the current etcd version")
+		}
+	}
 	currentEtcdVersion, err := version.ParseSemantic(currentEtcdVersionStr)
 	if err != nil {
 		return true, errors.Wrapf(err, "failed to parse the current etcd version(%s)", currentEtcdVersionStr)
@@ -309,30 +309,20 @@ func performEtcdStaticPodUpgrade(client clientset.Interface, waiter apiclient.Wa
 
 	// Write the updated etcd static Pod manifest into the temporary directory, at this point no etcd change
 	// has occurred in any aspects.
-	if err := etcdphase.CreateLocalEtcdStaticPodManifestFile(pathMgr.TempManifestDir(), cfg); err != nil {
+	if err := etcdphase.CreateLocalEtcdStaticPodManifestFile(pathMgr.TempManifestDir(), cfg.NodeRegistration.Name, &cfg.ClusterConfiguration, &cfg.LocalAPIEndpoint); err != nil {
 		return true, errors.Wrap(err, "error creating local etcd static pod manifest file")
 	}
 
-	// Waiter configurations for checking etcd status
-	noDelay := 0 * time.Second
-	podRestartDelay := noDelay
-	if isTLSUpgrade {
-		// If we are upgrading TLS we need to wait for old static pod to be removed.
-		// This is needed because we are not able to currently verify that the static pod
-		// has been updated through the apiserver across an etcd TLS upgrade.
-		// This value is arbitrary but seems to be long enough in manual testing.
-		podRestartDelay = 30 * time.Second
-	}
 	retries := 10
 	retryInterval := 15 * time.Second
 
 	// Perform etcd upgrade using common to all control plane components function
-	if err := upgradeComponent(constants.Etcd, waiter, pathMgr, cfg, beforeEtcdPodHash, recoverManifests, isTLSUpgrade); err != nil {
+	if err := upgradeComponent(constants.Etcd, waiter, pathMgr, cfg, beforeEtcdPodHash, recoverManifests); err != nil {
 		fmt.Printf("[upgrade/etcd] Failed to upgrade etcd: %v\n", err)
 		// Since upgrade component failed, the old etcd manifest has either been restored or was never touched
 		// Now we need to check the health of etcd cluster if it is up with old manifest
 		fmt.Println("[upgrade/etcd] Waiting for previous etcd to become available")
-		if _, err := oldEtcdClient.WaitForClusterAvailable(noDelay, retries, retryInterval); err != nil {
+		if _, err := oldEtcdClient.WaitForClusterAvailable(retries, retryInterval); err != nil {
 			fmt.Printf("[upgrade/etcd] Failed to healthcheck previous etcd: %v\n", err)
 
 			// At this point we know that etcd cluster is dead and it is safe to copy backup datastore and to rollback old etcd manifest
@@ -345,7 +335,7 @@ func performEtcdStaticPodUpgrade(client clientset.Interface, waiter apiclient.Wa
 
 			// Now that we've rolled back the data, let's check if the cluster comes up
 			fmt.Println("[upgrade/etcd] Waiting for previous etcd to become available")
-			if _, err := oldEtcdClient.WaitForClusterAvailable(noDelay, retries, retryInterval); err != nil {
+			if _, err := oldEtcdClient.WaitForClusterAvailable(retries, retryInterval); err != nil {
 				fmt.Printf("[upgrade/etcd] Failed to healthcheck previous etcd: %v\n", err)
 				// Nothing else left to try to recover etcd cluster
 				return true, errors.Wrapf(err, "fatal error rolling back local etcd cluster manifest, the backup of etcd database is stored here:(%s)", backupEtcdDir)
@@ -370,7 +360,7 @@ func performEtcdStaticPodUpgrade(client clientset.Interface, waiter apiclient.Wa
 
 	// Checking health state of etcd after the upgrade
 	fmt.Println("[upgrade/etcd] Waiting for etcd to become available")
-	if _, err = newEtcdClient.WaitForClusterAvailable(podRestartDelay, retries, retryInterval); err != nil {
+	if _, err = newEtcdClient.WaitForClusterAvailable(retries, retryInterval); err != nil {
 		fmt.Printf("[upgrade/etcd] Failed to healthcheck etcd: %v\n", err)
 		// Despite the fact that upgradeComponent was successful, there is something wrong with the etcd cluster
 		// First step is to restore back up of datastore
@@ -388,7 +378,7 @@ func performEtcdStaticPodUpgrade(client clientset.Interface, waiter apiclient.Wa
 
 		// Assuming rollback of the old etcd manifest was successful, check the status of etcd cluster again
 		fmt.Println("[upgrade/etcd] Waiting for previous etcd to become available")
-		if _, err := oldEtcdClient.WaitForClusterAvailable(noDelay, retries, retryInterval); err != nil {
+		if _, err := oldEtcdClient.WaitForClusterAvailable(retries, retryInterval); err != nil {
 			fmt.Printf("[upgrade/etcd] Failed to healthcheck previous etcd: %v\n", err)
 			// Nothing else left to try to recover etcd cluster
 			return true, errors.Wrapf(err, "fatal error rolling back local etcd cluster manifest, the backup of etcd database is stored here:(%s)", backupEtcdDir)
@@ -405,7 +395,6 @@ func performEtcdStaticPodUpgrade(client clientset.Interface, waiter apiclient.Wa
 // StaticPodControlPlane upgrades a static pod-hosted control plane
 func StaticPodControlPlane(client clientset.Interface, waiter apiclient.Waiter, pathMgr StaticPodPathManager, cfg *kubeadmapi.InitConfiguration, etcdUpgrade bool, oldEtcdClient, newEtcdClient etcdutil.ClusterInterrogator) error {
 	recoverManifests := map[string]string{}
-	var isTLSUpgrade bool
 	var isExternalEtcd bool
 
 	beforePodHashMap, err := waiter.WaitForStaticPodControlPlaneHashes(cfg.NodeRegistration.Name)
@@ -443,16 +432,11 @@ func StaticPodControlPlane(client clientset.Interface, waiter apiclient.Waiter, 
 
 	// etcd upgrade is done prior to other control plane components
 	if !isExternalEtcd && etcdUpgrade {
-		previousEtcdHasTLS := oldEtcdClient.HasTLS()
-
 		// set the TLS upgrade flag for all components
-		isTLSUpgrade = !previousEtcdHasTLS
-		if isTLSUpgrade {
-			fmt.Printf("[upgrade/etcd] Upgrading to TLS for %s\n", constants.Etcd)
-		}
+		fmt.Printf("[upgrade/etcd] Upgrading to TLS for %s\n", constants.Etcd)
 
 		// Perform etcd upgrade using common to all control plane components function
-		fatal, err := performEtcdStaticPodUpgrade(client, waiter, pathMgr, cfg, recoverManifests, isTLSUpgrade, oldEtcdClient, newEtcdClient)
+		fatal, err := performEtcdStaticPodUpgrade(client, waiter, pathMgr, cfg, recoverManifests, oldEtcdClient, newEtcdClient)
 		if err != nil {
 			if fatal {
 				return err
@@ -468,8 +452,8 @@ func StaticPodControlPlane(client clientset.Interface, waiter apiclient.Waiter, 
 		return errors.Wrap(err, "error creating init static pod manifest files")
 	}
 
-	for _, component := range constants.MasterComponents {
-		if err = upgradeComponent(component, waiter, pathMgr, cfg, beforePodHashMap[component], recoverManifests, isTLSUpgrade); err != nil {
+	for _, component := range constants.ControlPlaneComponents {
+		if err = upgradeComponent(component, waiter, pathMgr, cfg, beforePodHashMap[component], recoverManifests); err != nil {
 			return err
 		}
 	}
@@ -532,6 +516,21 @@ func renewCerts(cfg *kubeadmapi.InitConfiguration, component string) error {
 					&certsphase.KubeadmCertEtcdPeer,
 					&certsphase.KubeadmCertEtcdHealthcheck,
 				} {
+					if cert.BaseName == constants.EtcdServerCertAndKeyBaseName {
+						// When renewing the etcd server certificate it is necessary to mutate it from listening on
+						// localhost only to listening on localhost and API server advertise address (if not already the case)
+						// N.B. this code is necessary only in v1.14; starting from v1.15 all the etcd manifest should have 2 endpoints
+						advertiseAddress := net.ParseIP(cfg.LocalAPIEndpoint.AdvertiseAddress)
+						if advertiseAddress == nil {
+							return errors.Errorf("error parsing LocalAPIEndpoint AdvertiseAddress %q: is not a valid textual representation of an IP address", cfg.LocalAPIEndpoint.AdvertiseAddress)
+						}
+
+						if err := renewal.RenewAndMutateExistingEtcdServerCert(cfg.CertificatesDir, cert.BaseName, advertiseAddress, renewer); err != nil {
+							return errors.Wrapf(err, "failed to renew %s certificate and key", certsphase.KubeadmCertEtcdServer.Name)
+						}
+
+						continue
+					}
 					if err := renewal.RenewExistingCert(cfg.CertificatesDir, cert.BaseName, renewer); err != nil {
 						return errors.Wrapf(err, "failed to renew %s certificate and key", cert.Name)
 					}

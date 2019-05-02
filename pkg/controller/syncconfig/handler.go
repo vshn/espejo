@@ -49,7 +49,7 @@ func (r *ReconcileSyncConfig) handle(ctx context.Context, syncConfig *v1alpha1.S
 				reqLogger.Info("Deleted", getLoggingKeysAndValues(deleteObj)...)
 			}
 		}
-		for _, item := range syncConfig.Spec.Items {
+		for _, item := range syncConfig.Spec.SyncItems {
 			unstructObj := item.DeepCopy()
 			unstructObj.SetNamespace(targetNamespace.Name)
 

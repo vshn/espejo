@@ -13,7 +13,7 @@ spec:
         some-label: value
     matchNames:
     - myproject
-  items:
+  syncItems:
   - apiVersion: v1
     kind: Service
     metadata:
@@ -49,6 +49,6 @@ spec:
       policyTypes:
       - Ingress
   deleteItems:
-    - apiVersion: v1
-      kind: ConfigMap
-      name: some-name
+  - apiVersion: v1
+    kind: ConfigMap
+    name: some-name

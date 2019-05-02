@@ -1,7 +1,6 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  creationTimestamp: null
   name: syncconfigs.sync.appuio.ch
 spec:
   group: sync.appuio.ch
@@ -17,39 +16,55 @@ spec:
     openAPIV3Schema:
       properties:
         apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
           type: string
         kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
         spec:
           properties:
             deleteItems:
+              description: DeleteItems lists items to be deleted from targeted namespaces
               items:
                 properties:
                   apiVersion:
+                    description: APIVersion of the item to be deleted
                     type: string
                   kind:
+                    description: Kind of the item to be deleted
                     type: string
                   name:
+                    description: Name of the item to be deleted
                     type: string
                 type: object
               type: array
             forceRecreate:
+              description: ForceRecreate defines if objects should be deleted and
+                recreated if updates fails
               type: boolean
-            items:
-              items:
-                type: object
-              type: array
             namespaceSelector:
+              description: NamespaceSelector defines which namespaces should be targeted
               properties:
                 labelSelector:
+                  description: LabelSelector of namespaces to be targeted
                   type: object
                 matchNames:
+                  description: MatchNames lists namespace names to be targeted
                   items:
                     type: string
                   type: array
               type: object
+            syncItems:
+              description: SyncItems lists items to be synced to targeted namespaces
+              items:
+                type: object
+              type: array
           type: object
         status:
           type: object

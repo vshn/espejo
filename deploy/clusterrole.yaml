@@ -27,6 +27,7 @@ rules:
   - events
   - configmaps
   - secrets
+  - pods
   verbs:
   - "*"
 - apiGroups:

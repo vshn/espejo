@@ -4,8 +4,8 @@ metadata:
   name: espejo
 subjects:
 - kind: ServiceAccount
-  name: $REPLACE_WITH_NAMESPACE
-  namespace: syncer-test
+  name: espejo
+  namespace: $REPLACE_WITH_NAMESPACE
 roleRef:
   kind: ClusterRole
   name: espejo

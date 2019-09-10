@@ -12,7 +12,6 @@ package syncconfig
 
 import (
 	"context"
-	"strings"
 
 	templateapi "github.com/openshift/origin/pkg/template/apis/template"
 	"github.com/openshift/origin/pkg/template/generator"
@@ -22,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -87,7 +85,7 @@ func (r *ReconcileSyncConfig) getNamespaces(ctx context.Context, syncConfig *v1a
 
 	namespaces := filterNamespacesByNames(syncConfig.Spec.NamespaceSelector.MatchNames, namespaceList.Items)
 
-	selector, err := convertSelector(syncConfig.Spec.NamespaceSelector.LabelSelector)
+	selector, err := metav1.LabelSelectorAsSelector(syncConfig.Spec.NamespaceSelector.LabelSelector)
 	if err != nil {
 		return namespaces, err
 	}
@@ -114,20 +112,4 @@ func filterNamespacesByNames(names []string, namespaceList []corev1.Namespace) [
 		}
 	}
 	return namespaces
-}
-
-func convertSelector(labelSelector *metav1.LabelSelector) (labels.Selector, error) {
-	if labelSelector != nil {
-		selector := labels.SelectorFromSet(labels.Set(labelSelector.MatchLabels))
-		for _, req := range labelSelector.MatchExpressions {
-			op := strings.ToLower(string(req.Operator))
-			r, err := labels.NewRequirement(req.Key, selection.Operator(op), req.Values)
-			if err != nil {
-				return nil, err
-			}
-			selector = selector.Add(*r)
-		}
-		return selector, nil
-	}
-	return labels.Nothing(), nil
 }

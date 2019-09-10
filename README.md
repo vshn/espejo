@@ -4,7 +4,7 @@ The espejo tool (which means 'mirror' in Spanish) syncs objects from a SyncConfi
 
 ## CustomResourceDefinitions
 The operator introduces a CRD called `SyncConfig` to configure the objects which should be synced (see [example](deploy/crds/sync_v1alpha1_syncconfig_cr.yaml)).
-[This `SyncConfig`](deploy/crds/sync_v1alpha1_syncconfig_cr.yaml) will create a `Service`, `Endpoints` and `NetworkPolicy` object in all namepsaces which mach the [label selector](https://v1-9.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.9/#labelselector-v1-meta) OR one of the name selectors.
+[This `SyncConfig`](deploy/crds/sync_v1alpha1_syncconfig_cr.yaml) will create a `Service`, `Endpoints` and `NetworkPolicy` object in all namepsaces which mach the [label selector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.15/#labelselector-v1-meta) OR one of the name selectors.
 To ensure objects are deleted, set the `prune` parameter to `true` (default is `false`)
 
 ### Parameters
@@ -18,7 +18,7 @@ The following parameters can be used inside object definitions:
 | `${PROJECT_ADMIN_USER}`      | Not implemented              |
 | `${PROJECT_REQUESTING_USER}` | Not implemented              |
 
-The parameter replacement is implemented using the [OpenShift templates pkg](https://github.com/openshift/origin/tree/master/pkg/template/templateprocessing) and therefore follows the same [rules](https://docs.openshift.com/container-platform/3.9/dev_guide/templates.html#writing-parameters).
+The parameter replacement is implemented using the [OpenShift templates pkg](https://github.com/openshift/origin/tree/release-3.11/pkg/template/templateprocessing) and therefore follows the same [rules](https://docs.openshift.com/container-platform/3.11/dev_guide/templates.html#writing-parameters).
 
 ## Installation
 

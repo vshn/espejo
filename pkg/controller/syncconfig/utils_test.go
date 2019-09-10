@@ -93,6 +93,21 @@ func TestGetNamespaces(t *testing.T) {
 			},
 			3,
 		},
+		"Match DoesNotExist expression": {
+			testNamespaces,
+			&v1alpha1.SyncConfig{
+				Spec: v1alpha1.SyncConfigSpec{
+					NamespaceSelector: &v1alpha1.NamespaceSelector{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								metav1.LabelSelectorRequirement{Key: "a", Operator: metav1.LabelSelectorOpDoesNotExist},
+							},
+						},
+					},
+				},
+			},
+			1,
+		},
 		"Match In expression": {
 			testNamespaces,
 			&v1alpha1.SyncConfig{

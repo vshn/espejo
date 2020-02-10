@@ -4,7 +4,7 @@ The espejo tool (which means 'mirror' in Spanish) syncs objects from a SyncConfi
 
 ## CustomResourceDefinitions
 The operator introduces a CRD called `SyncConfig` to configure the objects which should be synced (see [example](deploy/crds/sync_v1alpha1_syncconfig_cr.yaml)).
-[This `SyncConfig`](deploy/crds/sync_v1alpha1_syncconfig_cr.yaml) will create a `Service`, `Endpoints` and `NetworkPolicy` object in all namepsaces which mach the [label selector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.15/#labelselector-v1-meta) OR one of the name selectors.
+[This `SyncConfig`](deploy/crds/sync_v1alpha1_syncconfig_cr.yaml) will create a `Service`, `Endpoints`, `NetworkPolicy` and `HorizontalPodAutoscaler` objects in all namepsaces which mach the [label selector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.15/#labelselector-v1-meta) OR one of the name selectors.
 To ensure objects are deleted, set the `prune` parameter to `true` (default is `false`)
 
 ### Parameters

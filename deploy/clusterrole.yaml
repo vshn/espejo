@@ -42,3 +42,9 @@ rules:
   - networkpolicies
   verbs:
   - "*"
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - "*"

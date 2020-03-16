@@ -8,7 +8,7 @@
 # Licensed under "BSD 3-Clause". See LICENSE file.
 #
 
-FROM docker.io/library/golang:1.13 as builder
+FROM docker.io/library/golang:1.14 as builder
 
 WORKDIR /go/src/github.com/vshn/espejo
 

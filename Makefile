@@ -29,9 +29,14 @@ all: manager
 test: generate fmt vet manifests
 	go test ./... -coverprofile cover.out
 
+.PHONY: dist
+dist:
+	goreleaser release --snapshot --rm-dist --skip-sign
+
+.PHONY: build
 # Build manager binary
-manager: generate fmt vet
-	go build -o bin/manager main.go
+build: generate fmt vet
+	go build -o bin/espejo main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
@@ -65,14 +70,6 @@ vet:
 # Generate code
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
-
-# Build the docker image
-docker-build: test
-	docker build . -t ${IMG}
-
-# Push the docker image
-docker-push:
-	docker push ${IMG}
 
 # find or download controller-gen
 # download controller-gen if necessary
@@ -113,8 +110,3 @@ bundle: manifests
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
-
-# Build the bundle image.
-.PHONY: bundle-build
-bundle-build:
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .

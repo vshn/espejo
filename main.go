@@ -17,6 +17,11 @@ import (
 )
 
 var (
+	// These will be populated by Goreleaser
+	version string
+	commit  string
+	date    string
+
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
@@ -61,7 +66,7 @@ func main() {
 	}
 	// +kubebuilder:scaffold:builder
 
-	setupLog.Info("starting manager")
+	setupLog.WithValues("version", version, "date", date, "commit", commit).Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

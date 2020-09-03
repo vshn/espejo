@@ -26,7 +26,7 @@ endif
 # Set Shell to bash, otherwise some targets fail with dash/zsh etc.
 SHELL := /bin/bash
 
-all: manager
+all: build
 
 # Run tests (see https://sdk.operatorframework.io/docs/building-operators/golang/references/envtest-setup)
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
@@ -116,3 +116,16 @@ bundle: manifests
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
+
+.PHONY: fmt vet lint
+fmt:
+	@echo 'Reformat Go code ...'
+	go fmt ./...
+
+vet:
+	@echo 'Examine Go code ...'
+	go vet ./...
+
+lint: fmt vet
+	@echo 'Check for uncommitted changes ...'
+	git diff --exit-code

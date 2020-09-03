@@ -140,7 +140,7 @@ func (r *SyncConfigReconciler) deleteItems(rc *ReconciliationContext, targetName
 	for _, deleteItem := range rc.cfg.Spec.DeleteItems {
 		deleteObj := deleteItem.ToDeleteObj(targetNamespace.Name)
 
-		propagationPolicy := metav1.DeletePropagationOrphan
+		propagationPolicy := metav1.DeletePropagationBackground
 		err := r.Client.Delete(rc.ctx, deleteObj, &client.DeleteOptions{
 			PropagationPolicy: &propagationPolicy,
 		})

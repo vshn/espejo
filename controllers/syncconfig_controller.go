@@ -28,7 +28,7 @@ import (
 type (
 	// SyncConfigReconciler reconciles a SyncConfig object
 	SyncConfigReconciler struct {
-		client.Client
+		Client client.Client
 		Log    logr.Logger
 		Scheme *runtime.Scheme
 	}
@@ -65,15 +65,23 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 	}
 	errCount := 0
 	namespaces, err := r.getNamespaces(rc)
-
+	if err != nil {
+		returnErr = err
+		syncConfig.Status.ReconcileError = err.Error()
+	}
 	for _, targetNamespace := range namespaces {
 		errCount += r.deleteItems(rc, targetNamespace)
 		errCount += r.syncItems(rc, targetNamespace)
 	}
 	if errCount > 0 {
-		returnErr = fmt.Errorf("%v errors occured during reconcile loop", errCount)
+		returnErr = fmt.Errorf("%v errors occured during reconcilement", errCount)
+		syncConfig.Status.ReconcileError = returnErr.Error()
 	}
-	_ = r.Client.Update(rc.ctx, syncConfig)
+	err = r.Client.Update(rc.ctx, syncConfig)
+	if err != nil {
+		returnErr = err
+		r.Log.Error(err, "could not update sync config", "object", syncConfig.Name, "namespace", syncConfig.Namespace)
+	}
 	return ctrl.Result{RequeueAfter: 10 * time.Second}, returnErr
 }
 
@@ -155,15 +163,19 @@ func (r *SyncConfigReconciler) getNamespaces(rc *ReconciliationContext) ([]corev
 		return []corev1.Namespace{}, err
 	}
 
+	// TODO: Clarify if namespace selector is really required
+	if rc.cfg.Spec.NamespaceSelector == nil {
+		return []corev1.Namespace{}, fmt.Errorf("namespace selector required")
+	}
 	namespaces := filterNamespacesByNames(rc.cfg.Spec.NamespaceSelector.MatchNames, namespaceList.Items)
 
-	selector, err := metav1.LabelSelectorAsSelector(rc.cfg.Spec.NamespaceSelector.LabelSelector)
+	labelSelector, err := metav1.LabelSelectorAsSelector(rc.cfg.Spec.NamespaceSelector.LabelSelector)
 	if err != nil {
 		return namespaces, err
 	}
 
 	for _, ns := range namespaceList.Items {
-		if selector.Matches(labels.Set(ns.GetLabels())) {
+		if labelSelector.Matches(labels.Set(ns.GetLabels())) {
 			namespaces = append(namespaces, ns)
 		}
 	}

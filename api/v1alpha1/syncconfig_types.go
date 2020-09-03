@@ -47,6 +47,9 @@ type NamespaceSelector struct {
 type SyncConfigStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// ReconcileError contains any error messages during synchronization, if any
+	ReconcileError string `json:"reconcileerror,omitempty"`
 }
 
 // +kubebuilder:object:root=true

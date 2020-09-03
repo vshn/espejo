@@ -50,6 +50,7 @@ func main() {
 		Port:               9443,
 		LeaderElection:     enableLeaderElection,
 		LeaderElectionID:   "bd39f6a0.appuio.ch",
+		Namespace:          getWatchNamespace(),
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -71,4 +72,10 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// getWatchNamespace returns the Namespace the operator should be watching for changes
+// An empty value means the operator is running with cluster scope.
+func getWatchNamespace() string {
+	return os.Getenv("WATCH_NAMESPACE")
 }

@@ -50,12 +50,11 @@ func (r *SyncConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, returnErr error) {
 	ctx := context.Background()
-	_ = r.Log.WithValues("syncconfig", req.NamespacedName)
-
 	syncConfig := &syncv1alpha1.SyncConfig{}
+
 	err := r.Client.Get(ctx, req.NamespacedName, syncConfig)
 	if err != nil {
-		r.Log.Error(err, "could not get sync config", "SyncConfig", req.NamespacedName)
+		r.Log.Error(err, "Could not get SyncConfig", "SyncConfig", req.NamespacedName)
 		return ctrl.Result{Requeue: true, RequeueAfter: 1 * time.Minute}, err
 	}
 
@@ -64,7 +63,7 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 		cfg: syncConfig,
 	}
 	errCount := 0
-	r.Log.Info("Reconciling", "SyncConfig", req.NamespacedName)
+	r.Log.Info("Reconciling", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
 	namespaces, reconcileErr := r.getNamespaces(rc)
 	if reconcileErr != nil {
 		returnErr = r.updateConfig(rc, reconcileErr)
@@ -75,6 +74,7 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 		errCount += r.syncItems(rc, targetNamespace)
 	}
 	if errCount > 0 {
+		r.Log.V(1).Info("Encountered errors", "err_count", errCount)
 		returnErr = fmt.Errorf("%v errors occured during reconcilement", errCount)
 	}
 	returnErr = r.updateConfig(rc, returnErr)
@@ -90,9 +90,10 @@ func (r *SyncConfigReconciler) updateConfig(rc *ReconciliationContext, reconcile
 	}
 	err := r.Client.Update(rc.ctx, rc.cfg)
 	if err != nil {
-		r.Log.Error(err, "could not update sync config", "object", rc.cfg.Name, "namespace", rc.cfg.Namespace)
+		r.Log.Error(err, "Could not update SyncConfig", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
 		return err
 	}
+	r.Log.Info("Updated SyncConfig", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
 	return nil
 }
 
@@ -176,8 +177,7 @@ func (r *SyncConfigReconciler) getNamespaces(rc *ReconciliationContext) (namespa
 	}
 
 	if rc.cfg.Spec.NamespaceSelector == nil {
-		r.Log.Info("NamespaceSelector was not given, using namespace from SyncConfig",
-			"SyncConfig", rc.cfg.Namespace+"/"+rc.cfg.Name)
+		r.Log.Info("spec.namespaceSelector was not given, using namespace from SyncConfig", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
 		namespaces = []corev1.Namespace{namespaceFromString(rc.cfg.Namespace)}
 		return namespaces, nil
 	}

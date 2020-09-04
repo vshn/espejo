@@ -55,7 +55,7 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 	syncConfig := &syncv1alpha1.SyncConfig{}
 	err := r.Client.Get(ctx, req.NamespacedName, syncConfig)
 	if err != nil {
-		r.Log.Error(err, "could not get sync config", "syncconfig", req.NamespacedName)
+		r.Log.Error(err, "could not get sync config", "SyncConfig", req.NamespacedName)
 		return ctrl.Result{Requeue: true, RequeueAfter: 1 * time.Minute}, err
 	}
 
@@ -64,10 +64,11 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 		cfg: syncConfig,
 	}
 	errCount := 0
-	namespaces, err := r.getNamespaces(rc)
-	if err != nil {
-		returnErr = err
-		syncConfig.Status.ReconcileError = err.Error()
+	r.Log.Info("Reconciling", "SyncConfig", req.NamespacedName)
+	namespaces, reconcileErr := r.getNamespaces(rc)
+	if reconcileErr != nil {
+		returnErr = r.updateConfig(rc, reconcileErr)
+		return ctrl.Result{RequeueAfter: 1 * time.Minute}, returnErr
 	}
 	for _, targetNamespace := range namespaces {
 		errCount += r.deleteItems(rc, targetNamespace)
@@ -75,14 +76,24 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 	}
 	if errCount > 0 {
 		returnErr = fmt.Errorf("%v errors occured during reconcilement", errCount)
-		syncConfig.Status.ReconcileError = returnErr.Error()
 	}
-	err = r.Client.Update(rc.ctx, syncConfig)
-	if err != nil {
-		returnErr = err
-		r.Log.Error(err, "could not update sync config", "object", syncConfig.Name, "namespace", syncConfig.Namespace)
-	}
+	returnErr = r.updateConfig(rc, returnErr)
 	return ctrl.Result{RequeueAfter: 10 * time.Second}, returnErr
+}
+
+func (r *SyncConfigReconciler) updateConfig(rc *ReconciliationContext, reconcileErr error) error {
+	if reconcileErr != nil {
+		rc.cfg.Status.ReconcileError = reconcileErr.Error()
+	} else {
+		// clear errors
+		rc.cfg.Status.ReconcileError = ""
+	}
+	err := r.Client.Update(rc.ctx, rc.cfg)
+	if err != nil {
+		r.Log.Error(err, "could not update sync config", "object", rc.cfg.Name, "namespace", rc.cfg.Namespace)
+		return err
+	}
+	return nil
 }
 
 func (r *SyncConfigReconciler) syncItems(rc *ReconciliationContext, targetNamespace corev1.Namespace) (errCount int) {
@@ -138,6 +149,7 @@ func (r *SyncConfigReconciler) syncItems(rc *ReconciliationContext, targetNamesp
 
 func (r *SyncConfigReconciler) deleteItems(rc *ReconciliationContext, targetNamespace corev1.Namespace) (errCount int) {
 	for _, deleteItem := range rc.cfg.Spec.DeleteItems {
+		r.Log.V(1).Info("Deleting", "item", deleteItem)
 		deleteObj := deleteItem.ToDeleteObj(targetNamespace.Name)
 
 		propagationPolicy := metav1.DeletePropagationBackground
@@ -147,7 +159,7 @@ func (r *SyncConfigReconciler) deleteItems(rc *ReconciliationContext, targetName
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				errCount++
-				r.Log.Error(err, "Error deleting object", getLoggingKeysAndValues(deleteObj)...)
+				r.Log.WithValues(getLoggingKeysAndValues(deleteObj)...).Info("Error deleting object", "error", err)
 			}
 		} else {
 			r.Log.Info("Deleted", getLoggingKeysAndValues(deleteObj)...)
@@ -156,18 +168,20 @@ func (r *SyncConfigReconciler) deleteItems(rc *ReconciliationContext, targetName
 	return errCount
 }
 
-func (r *SyncConfigReconciler) getNamespaces(rc *ReconciliationContext) ([]corev1.Namespace, error) {
+func (r *SyncConfigReconciler) getNamespaces(rc *ReconciliationContext) (namespaces []corev1.Namespace, returnErr error) {
 	namespaceList := &corev1.NamespaceList{}
 	err := r.Client.List(rc.ctx, namespaceList)
 	if err != nil {
 		return []corev1.Namespace{}, err
 	}
 
-	// TODO: Clarify if namespace selector is really required
 	if rc.cfg.Spec.NamespaceSelector == nil {
-		return []corev1.Namespace{}, fmt.Errorf("namespace selector required")
+		r.Log.Info("NamespaceSelector was not given, using namespace from SyncConfig",
+			"SyncConfig", rc.cfg.Namespace+"/"+rc.cfg.Name)
+		namespaces = []corev1.Namespace{namespaceFromString(rc.cfg.Namespace)}
+		return namespaces, nil
 	}
-	namespaces := filterNamespacesByNames(rc.cfg.Spec.NamespaceSelector.MatchNames, namespaceList.Items)
+	namespaces = filterNamespacesByNames(rc.cfg.Spec.NamespaceSelector.MatchNames, namespaceList.Items)
 
 	labelSelector, err := metav1.LabelSelectorAsSelector(rc.cfg.Spec.NamespaceSelector.LabelSelector)
 	if err != nil {
@@ -206,9 +220,25 @@ func replaceProjectName(replacement string, m map[string]interface{}) {
 		case string:
 			s := m[k].(string)
 			m[k] = strings.ReplaceAll(s, "${PROJECT_NAME}", replacement)
+		case int64:
+		case int32:
+		case int:
+		case bool:
+			continue
+		case []interface{}:
+			for _, elem := range v.([]interface{}) {
+				replaceProjectName(replacement, elem.(map[string]interface{}))
+			}
 		case interface{}:
 			replaceProjectName(replacement, m[k].(map[string]interface{}))
 		}
+	}
+}
+
+func namespaceFromString(namespace string) corev1.Namespace {
+	return corev1.Namespace{
+		TypeMeta:   metav1.TypeMeta{Kind: "Namespace", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{Name: namespace},
 	}
 }
 

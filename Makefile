@@ -73,6 +73,10 @@ fmt:
 vet:
 	go vet ./...
 
+lint: fmt vet
+	@echo 'Check for uncommitted changes ...'
+	git diff --exit-code
+
 # Generate code
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
@@ -116,16 +120,3 @@ bundle: manifests
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
-
-.PHONY: fmt vet lint
-fmt:
-	@echo 'Reformat Go code ...'
-	go fmt ./...
-
-vet:
-	@echo 'Examine Go code ...'
-	go vet ./...
-
-lint: fmt vet
-	@echo 'Check for uncommitted changes ...'
-	git diff --exit-code

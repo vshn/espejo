@@ -1,0 +1,4 @@
+## Append samples you want in your CSV to this file as resources ##
+resources:
+- sync_v1alpha1_syncconfig.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

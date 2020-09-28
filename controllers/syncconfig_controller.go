@@ -28,9 +28,10 @@ import (
 type (
 	// SyncConfigReconciler reconciles a SyncConfig object
 	SyncConfigReconciler struct {
-		Client client.Client
-		Log    logr.Logger
-		Scheme *runtime.Scheme
+		Client            client.Client
+		Log               logr.Logger
+		Scheme            *runtime.Scheme
+		ReconcileInterval time.Duration
 	}
 	// ReconciliationContext holds the parameters of a reconciliation
 	ReconciliationContext struct {
@@ -55,7 +56,7 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 	err := r.Client.Get(ctx, req.NamespacedName, syncConfig)
 	if err != nil {
 		r.Log.Error(err, "Could not get SyncConfig", "SyncConfig", req.NamespacedName)
-		return ctrl.Result{Requeue: true, RequeueAfter: 1 * time.Minute}, err
+		return ctrl.Result{Requeue: true, RequeueAfter: r.ReconcileInterval}, err
 	}
 
 	rc := &ReconciliationContext{

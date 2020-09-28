@@ -39,6 +39,7 @@ ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 $(TESTBIN_DIR):
 	mkdir -p $(TESTBIN_DIR)
 
+integration_test: export ENVTEST_K8S_VERSION = 1.19.0
 integration_test: generate fmt vet manifests $(TESTBIN_DIR)
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/master/hack/setup-envtest.sh
 	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out -ginkgo.v
@@ -129,11 +130,11 @@ bundle: manifests
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
 
-system_test: integration_test setup_system_test
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out -ginkgo.v
-  # TODO: Engineer system tests somehow
+e2e_test: setup_system_test
+	@echo "TODO: Engineer system tests somehow"
 
 setup_system_test: $(KIND_BIN) generate manifests
+	kubectl config use-context kind-espejo
 	kubectl apply -k config/crd
 
 run_kind: setup_system_test

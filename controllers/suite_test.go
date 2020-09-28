@@ -21,8 +21,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"testing"
 
 	syncv1alpha1 "github.com/vshn/espejo/api/v1alpha1"
@@ -152,6 +154,23 @@ var _ = Describe("SyncConfig controller", func() {
 		By("verify that resource doesn't exist anymore")
 		err = k8sClient.Get(context.Background(), types.NamespacedName{Namespace: ns, Name: cm.Name}, &v1.ConfigMap{})
 		Expect(err).To(HaveOccurred())
+	})
+
+	It("should map namespace updates into list of reconcile objects", func() {
+
+		By("setting up test resources")
+		ns := "map"
+		sourceNs := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+		sc := &syncv1alpha1.SyncConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: sourceNs.Name},
+		}
+		Expect(k8sClient.Create(context.Background(), sourceNs)).ToNot(HaveOccurred())
+		Expect(k8sClient.Create(context.Background(), sc)).ToNot(HaveOccurred())
+
+		By("mapping namespace into reconcile object")
+		result := syncConfigReconciler.Map(handler.MapObject{Meta: sourceNs.GetObjectMeta()})
+		Expect(result).ToNot(BeEmpty())
+		Expect(result).To(ContainElement(reconcile.Request{NamespacedName: types.NamespacedName{Name: sc.Name, Namespace: sc.Namespace}}))
 	})
 })
 

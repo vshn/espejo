@@ -14,6 +14,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strings"
 	"time"
 
@@ -43,7 +46,27 @@ type (
 func (r *SyncConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&syncv1alpha1.SyncConfig{}).
+		Watches(&source.Kind{Type: &corev1.Namespace{}}, &handler.EnqueueRequestsFromMapFunc{ToRequests: r}).
 		Complete(r)
+}
+
+// Map transforms the watched objects into a list of SyncConfig to enqueue for later reconciliation.
+func (r *SyncConfigReconciler) Map(object handler.MapObject) (reqs []reconcile.Request) {
+	r.Log.Info("Reconciling Namespace", "namespace", object.Meta.GetName())
+	configList := &syncv1alpha1.SyncConfigList{}
+	ctx := context.Background()
+	err := r.Client.List(ctx, configList)
+	if err != nil {
+		r.Log.Error(err, "Could not get list of SyncConfig")
+		return reqs
+	}
+	for _, cfg := range configList.Items {
+		reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+			Name:      cfg.Name,
+			Namespace: cfg.Namespace,
+		}})
+	}
+	return reqs
 }
 
 // +kubebuilder:rbac:groups=sync.appuio.ch,resources=syncconfigs,verbs=get;list;watch;create;update;patch;delete

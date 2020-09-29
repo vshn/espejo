@@ -35,6 +35,7 @@ type (
 		Log               logr.Logger
 		Scheme            *runtime.Scheme
 		ReconcileInterval time.Duration
+		WatchNamespace    string
 	}
 	// ReconciliationContext holds the parameters of a reconciliation
 	ReconciliationContext struct {
@@ -52,10 +53,26 @@ func (r *SyncConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // Map transforms the watched objects into a list of SyncConfig to enqueue for later reconciliation.
 func (r *SyncConfigReconciler) Map(object handler.MapObject) (reqs []reconcile.Request) {
-	r.Log.Info("Reconciling Namespace", "namespace", object.Meta.GetName())
 	configList := &syncv1alpha1.SyncConfigList{}
 	ctx := context.Background()
-	err := r.Client.List(ctx, configList)
+
+	ns := &corev1.Namespace{}
+	err := r.Client.Get(ctx, types.NamespacedName{Name: object.Meta.GetName()}, ns)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			r.Log.Info("Namespace does not exist, ignoring reconcile.", "namespace", object.Meta.GetName())
+		} else {
+			r.Log.Info("Could not get namespace status.", "namespace", object.Meta.GetName(), "error", err.Error())
+		}
+		return reqs
+	}
+	if ns.Status.Phase != corev1.NamespaceActive {
+		r.Log.V(1).Info("Namespace is not active, ignoring reconcile.", "namespace", ns.Name, "phase", ns.Status.Phase)
+		return reqs
+	}
+
+	r.Log.Info("Reconciling from Namespace event", "namespace", object.Meta.GetName())
+	err = r.Client.List(ctx, configList, &client.ListOptions{Namespace: r.WatchNamespace})
 	if err != nil {
 		r.Log.Error(err, "Could not get list of SyncConfig")
 		return reqs
@@ -78,7 +95,11 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 
 	err := r.Client.Get(ctx, req.NamespacedName, syncConfig)
 	if err != nil {
-		r.Log.Error(err, "Could not get SyncConfig", "SyncConfig", req.NamespacedName)
+		if apierrors.IsNotFound(err) {
+			r.Log.Info("SyncConfig not found, ignoring reconcile.", "SyncConfig", req.NamespacedName)
+			return ctrl.Result{Requeue: false}, nil
+		}
+		r.Log.Error(err, "Could not retrieve SyncConfig.", "SyncConfig", req.NamespacedName)
 		return ctrl.Result{Requeue: true, RequeueAfter: r.ReconcileInterval}, err
 	}
 
@@ -94,8 +115,10 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 		return ctrl.Result{RequeueAfter: 1 * time.Minute}, returnErr
 	}
 	for _, targetNamespace := range namespaces {
-		errCount += r.deleteItems(rc, targetNamespace)
-		errCount += r.syncItems(rc, targetNamespace)
+		if targetNamespace.Status.Phase == corev1.NamespaceActive {
+			errCount += r.deleteItems(rc, targetNamespace)
+			errCount += r.syncItems(rc, targetNamespace)
+		}
 	}
 	if errCount > 0 {
 		r.Log.V(1).Info("Encountered errors", "err_count", errCount)

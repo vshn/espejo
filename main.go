@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"go.uber.org/zap/zapcore"
 	"os"
 	"time"
 
@@ -40,6 +42,7 @@ type (
 		LeaderElection    bool   `koanf:"enable-leader-election"`
 		MetricsAddr       string `koanf:"metrics-addr"`
 		ReconcileInterval string `koanf:"reconcile-interval"`
+		Debug             bool   `koanf:"verbose"`
 	}
 )
 
@@ -55,9 +58,19 @@ func main() {
 	f.Bool("enable-leader-election", config.LeaderElection, "Enable leader election for controller manager. "+
 		"Enabling this will ensure there is only one active controller manager.")
 	f.String("reconcile-interval", config.ReconcileInterval, "The interval of which SyncConfigs get reconciled.")
-
+	f.BoolP("verbose", "v", config.Debug, "Enable debug mode")
+	f.Usage = func() {
+		fmt.Println("Usage of Espejo:")
+		fmt.Print(f.FlagUsages())
+		os.Exit(0)
+	}
 	loadConfig(f)
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	logLevel := zapcore.InfoLevel
+	if config.Debug {
+		logLevel = zapcore.DebugLevel
+	}
+	setupLog.Info("log level", "loglevel", logLevel)
+	ctrl.SetLogger(zap.New(zap.UseDevMode(true), zap.Level(logLevel)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
@@ -82,6 +95,7 @@ func main() {
 		Log:               ctrl.Log.WithName("controllers").WithName("SyncConfig"),
 		Scheme:            mgr.GetScheme(),
 		ReconcileInterval: interval,
+		WatchNamespace:    getWatchNamespace(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SyncConfig")
 		os.Exit(1)

@@ -8,18 +8,16 @@ source ${test_dir}/functions.sh
 
 e2e-test-setup
 
-WATCH_NAMESPACE=espejo go run main.go &
-PID=$!
-echo "Started espejo with PID=${PID}"
+WATCH_NAMESPACE=espejo start-espejo
 
 sleep 5s
-echo "Creating sync config in an unwatched namespace"
-kubectl apply -f ${test_dir}/syncconfig.yaml
+echo "- Creating sync config in an unwatched namespace"
+kubectl -n default apply -f ${test_dir}/syncconfig.yaml
 sleep 5s
 
-kubectl get cm -n e2e-test
+echo "- Verifying that there is no object in namespace"
+kubectl get cm -n e2e-test 2>&1 | grep "No resources found in e2e-test namespace."
 
-kill ${PID}
+echo "--- TEST PASSED"
 
 e2e-test-teardown
-

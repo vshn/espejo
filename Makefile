@@ -130,12 +130,12 @@ bundle: manifests
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
 
-e2e_test: setup_system_test
-	@echo "TODO: Engineer system tests somehow"
+e2e_test: setup_system_test build
+	@find e2e-test -type f -name *_test.sh | xargs -I % sh -c "echo --- TEST % && bash %"
 
-setup_system_test: $(KIND_BIN) generate manifests
-	kubectl config use-context kind-espejo
-	kubectl apply -k config/crd
+setup_system_test: $(KIND_BIN)
+	@kubectl config use-context kind-espejo
+	@kubectl apply -k config/crd
 
 run_kind: setup_system_test
 	go run ./main.go

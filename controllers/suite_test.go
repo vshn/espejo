@@ -172,6 +172,25 @@ var _ = Describe("SyncConfig controller", func() {
 		Expect(result).ToNot(BeEmpty())
 		Expect(result).To(ContainElement(reconcile.Request{NamespacedName: types.NamespacedName{Name: sc.Name, Namespace: sc.Namespace}}))
 	})
+
+	It("should map namespace updates into list of reconcile objects with namespace filter", func() {
+
+		By("setting up test resources")
+		ns := "map-filtered"
+		sourceNs := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+		sc := &syncv1alpha1.SyncConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: sourceNs.Name},
+		}
+		syncConfigReconciler.WatchNamespace = ns
+		Expect(k8sClient.Create(context.Background(), sourceNs)).ToNot(HaveOccurred())
+		Expect(k8sClient.Create(context.Background(), sc)).ToNot(HaveOccurred())
+
+		By("mapping namespace into reconcile object")
+		result := syncConfigReconciler.Map(handler.MapObject{Meta: sourceNs.GetObjectMeta()})
+		Expect(result).To(HaveLen(1))
+		Expect(result).To(ContainElement(reconcile.Request{NamespacedName: types.NamespacedName{Name: sc.Name, Namespace: sc.Namespace}}))
+		syncConfigReconciler.WatchNamespace = ""
+	})
 })
 
 func toUnstructured(configMap *v1.ConfigMap) unstructured.Unstructured {

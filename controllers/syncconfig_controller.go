@@ -7,7 +7,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -108,44 +107,72 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 		ctx: ctx,
 		cfg: syncConfig,
 	}
-	errCount := 0
+	syncCount := int64(0)
+	deleteCount := int64(0)
+	failCount := int64(0)
 	r.Log.Info("Reconciling", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
 	namespaces, reconcileErr := r.getNamespaces(rc)
 	if reconcileErr != nil {
-		returnErr = r.updateStatus(rc, reconcileErr)
+		returnErr = r.updateStatus(rc, 0, 0, 0, reconcileErr)
 		return ctrl.Result{RequeueAfter: 1 * time.Minute}, returnErr
 	}
+
 	for _, targetNamespace := range namespaces {
+		var e = int64(0)
 		if targetNamespace.Status.Phase == corev1.NamespaceActive {
-			errCount += r.deleteItems(rc, targetNamespace)
-			errCount += r.syncItems(rc, targetNamespace)
+			deleteCount, e = r.deleteItems(rc, targetNamespace)
+			syncCount, failCount = r.syncItems(rc, targetNamespace)
+			failCount += e
 		}
 	}
-	if errCount > 0 {
-		r.Log.V(1).Info("Encountered errors", "err_count", errCount)
-		returnErr = fmt.Errorf("%v errors occured during reconcilement", errCount)
+	if failCount > 0 {
+		r.Log.V(1).Info("Encountered errors", "err_count", failCount)
 	}
-	returnErr = r.updateStatus(rc, returnErr)
+	returnErr = r.updateStatus(rc, syncCount, deleteCount, failCount, reconcileErr)
 	return ctrl.Result{RequeueAfter: 10 * time.Second}, returnErr
 }
 
-func (r *SyncConfigReconciler) updateStatus(rc *ReconciliationContext, reconcileErr error) error {
-	if reconcileErr != nil {
-		rc.cfg.Status.ReconcileError = reconcileErr.Error()
-	} else {
-		// clear errors
-		rc.cfg.Status.ReconcileError = ""
+func (r *SyncConfigReconciler) updateStatus(rc *ReconciliationContext, syncCount, deleteCount, failCount int64, reconcileErr error) error {
+	status := rc.cfg.Status
+	status.SynchronizedItemCount = syncCount
+	status.DeletedItemCount = deleteCount
+	status.FailedItemCount = failCount
+
+	status.Conditions = []syncv1alpha1.SyncConfigCondition{}
+
+	readyCondition := syncv1alpha1.SyncConfigCondition{
+		Status:             corev1.ConditionTrue,
+		Type:               syncv1alpha1.SyncConfigReady,
+		LastTransitionTime: metav1.Now(),
+		Reason:             "SynchronizationSucceeded",
+		Message:            "Synchronization completed successfully",
 	}
+	if reconcileErr != nil {
+		readyCondition.Message = "Synchronization failed"
+		readyCondition.Status = corev1.ConditionFalse
+		errCondition := syncv1alpha1.SyncConfigCondition{
+			Status:             corev1.ConditionTrue,
+			Type:               syncv1alpha1.SyncConfigErrored,
+			LastTransitionTime: metav1.Now(),
+			Reason:             "SynchronizationFailedWithErrors",
+			Message:            reconcileErr.Error(),
+		}
+		status.Conditions = append(status.Conditions, errCondition)
+	}
+	status.Conditions = append(status.Conditions, readyCondition)
+
+	rc.cfg.Status = status
 	err := r.Client.Status().Update(rc.ctx, rc.cfg)
 	if err != nil {
 		r.Log.Error(err, "Could not update SyncConfig.", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
 		return err
 	}
-	r.Log.Info("Updated SyncConfig status.", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
+	r.Log.WithValues("syncCount", syncCount, "deleteCount", deleteCount, "failCount", failCount).
+		Info("Updated SyncConfig status.", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
 	return nil
 }
 
-func (r *SyncConfigReconciler) syncItems(rc *ReconciliationContext, targetNamespace corev1.Namespace) (errCount int) {
+func (r *SyncConfigReconciler) syncItems(rc *ReconciliationContext, targetNamespace corev1.Namespace) (syncCount, failCount int64) {
 	for _, item := range rc.cfg.Spec.SyncItems {
 		unstructObj := item.DeepCopy()
 		unstructObj.SetNamespace(targetNamespace.Name)
@@ -155,7 +182,7 @@ func (r *SyncConfigReconciler) syncItems(rc *ReconciliationContext, targetNamesp
 		err := r.Client.Create(rc.ctx, unstructObj)
 		if err != nil {
 			if !apierrors.IsAlreadyExists(err) {
-				errCount++
+				failCount++
 				r.Log.Error(err, "Error creating", getLoggingKeysAndValues(unstructObj)...)
 				continue
 			}
@@ -168,35 +195,38 @@ func (r *SyncConfigReconciler) syncItems(rc *ReconciliationContext, targetNamesp
 					Namespace: unstructObj.GetNamespace()},
 				existingObj)
 			if err != nil {
-				errCount++
+				failCount++
 				continue
 			}
 			unstructObj.SetResourceVersion(existingObj.GetResourceVersion())
 			err = r.Client.Update(rc.ctx, unstructObj)
 			if err != nil {
 				if apierrors.IsInvalid(err) && rc.cfg.Spec.ForceRecreate {
-					r.Log.Info("Recreating", getLoggingKeysAndValues(unstructObj)...)
 					err = r.recreateObject(rc, unstructObj)
 					if err != nil {
-						errCount++
-						r.Log.Error(err, "Error recreating", getLoggingKeysAndValues(unstructObj)...)
+						failCount++
+						r.Log.WithValues("failCount", failCount).Error(err, "Error recreating", getLoggingKeysAndValues(unstructObj)...)
 					}
+					syncCount++
+					r.Log.WithValues("syncCount", syncCount).Info("Recreated", getLoggingKeysAndValues(unstructObj)...)
 				} else {
-					errCount++
-					r.Log.Error(err, "Error updating", getLoggingKeysAndValues(unstructObj)...)
+					failCount++
+					r.Log.WithValues("failCount", failCount).Error(err, "Error updating", getLoggingKeysAndValues(unstructObj)...)
 				}
 			} else {
-				r.Log.Info("Updated", getLoggingKeysAndValues(unstructObj)...)
+				syncCount++
+				r.Log.WithValues("syncCount", syncCount).Info("Updated", getLoggingKeysAndValues(unstructObj)...)
 			}
 		} else {
-			r.Log.Info("Created", getLoggingKeysAndValues(unstructObj)...)
+			syncCount++
+			r.Log.WithValues("syncCount", syncCount).Info("Created", getLoggingKeysAndValues(unstructObj)...)
 		}
 
 	}
-	return errCount
+	return
 }
 
-func (r *SyncConfigReconciler) deleteItems(rc *ReconciliationContext, targetNamespace corev1.Namespace) (errCount int) {
+func (r *SyncConfigReconciler) deleteItems(rc *ReconciliationContext, targetNamespace corev1.Namespace) (deleteCount, errCount int64) {
 	for _, deleteItem := range rc.cfg.Spec.DeleteItems {
 		r.Log.V(1).Info("Deleting", "item", deleteItem)
 		deleteObj := deleteItem.ToDeleteObj(targetNamespace.Name)
@@ -212,9 +242,10 @@ func (r *SyncConfigReconciler) deleteItems(rc *ReconciliationContext, targetName
 			}
 		} else {
 			r.Log.Info("Deleted", getLoggingKeysAndValues(deleteObj)...)
+			deleteCount++
 		}
 	}
-	return errCount
+	return
 }
 
 func (r *SyncConfigReconciler) getNamespaces(rc *ReconciliationContext) (namespaces []corev1.Namespace, returnErr error) {

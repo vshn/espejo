@@ -67,3 +67,8 @@ func filterNamespacesByNames(names []string, namespaceList []v1.Namespace) (name
 	}
 	return namespaces
 }
+
+// isReconcileFailed returns true if no objects could be synced or deleted and failedCount is > 0
+func isReconcileFailed(syncCount, deleteCount, failedCount int64) bool {
+	return syncCount == 0 && deleteCount == 0 && failedCount > 0
+}

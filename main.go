@@ -53,24 +53,8 @@ func init() {
 }
 
 func main() {
-	f := flag.NewFlagSet("config", flag.ContinueOnError)
-	f.String("metrics-addr", config.MetricsAddr, "The address the metric endpoint binds to.")
-	f.Bool("enable-leader-election", config.LeaderElection, "Enable leader election for controller manager. "+
-		"Enabling this will ensure there is only one active controller manager.")
-	f.String("reconcile-interval", config.ReconcileInterval, "The interval of which SyncConfigs get reconciled.")
-	f.BoolP("verbose", "v", config.Debug, "Enable debug mode")
-	f.Usage = func() {
-		fmt.Println("Usage of Espejo:")
-		fmt.Print(f.FlagUsages())
-		os.Exit(0)
-	}
-	loadConfig(f)
-	logLevel := zapcore.InfoLevel
-	if config.Debug {
-		logLevel = zapcore.DebugLevel
-	}
-	setupLog.Info("log level", "loglevel", logLevel)
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true), zap.Level(logLevel)))
+	loadConfig()
+	setupLogger()
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
@@ -116,9 +100,36 @@ func getWatchNamespace() string {
 }
 
 // loadConfig will populate the configuration
-func loadConfig(f *flag.FlagSet) {
-	_ = f.Parse(os.Args[1:])
-	if err := koanfInstance.Load(posflag.Provider(f, ".", koanfInstance), nil); err != nil {
-		setupLog.Error(err, "error loading config")
+func loadConfig() {
+	f := flag.NewFlagSet("config", flag.ContinueOnError)
+	f.String("metrics-addr", config.MetricsAddr, "The address the metric endpoint binds to.")
+	f.Bool("enable-leader-election", config.LeaderElection, "Enable leader election for controller manager. "+
+		"Enabling this will ensure there is only one active controller manager.")
+	f.String("reconcile-interval", config.ReconcileInterval, "The interval of which SyncConfigs get reconciled.")
+	f.BoolP("verbose", "v", config.Debug, "Enable debug mode")
+	f.Usage = func() {
+		fmt.Println("Usage of Espejo:")
+		fmt.Print(f.FlagUsages())
+		os.Exit(0)
 	}
+	if err := f.Parse(os.Args[1:]); err != nil {
+		setupLog.Error(err, "Could not parse flags.")
+		os.Exit(1)
+	}
+	if err := koanfInstance.Load(posflag.Provider(f, ".", koanfInstance), nil); err != nil {
+		setupLog.Error(err, "Could not configure settings from flags.")
+		os.Exit(1)
+	}
+	if err := koanfInstance.Unmarshal("", &config); err != nil {
+		setupLog.Error(err, "Could not unmarshal config.")
+		os.Exit(1)
+	}
+}
+
+func setupLogger() {
+	logLevel := zapcore.InfoLevel
+	if config.Debug {
+		logLevel = zapcore.DebugLevel
+	}
+	ctrl.SetLogger(zap.New(zap.UseDevMode(true), zap.Level(logLevel)))
 }

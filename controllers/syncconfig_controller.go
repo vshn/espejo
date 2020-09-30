@@ -15,9 +15,9 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -47,6 +47,7 @@ type (
 func (r *SyncConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&syncv1alpha1.SyncConfig{}).
+		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Watches(&source.Kind{Type: &corev1.Namespace{}}, &handler.EnqueueRequestsFromMapFunc{ToRequests: r}).
 		Complete(r)
 }
@@ -111,7 +112,7 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 	r.Log.Info("Reconciling", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
 	namespaces, reconcileErr := r.getNamespaces(rc)
 	if reconcileErr != nil {
-		returnErr = r.updateConfig(rc, reconcileErr)
+		returnErr = r.updateStatus(rc, reconcileErr)
 		return ctrl.Result{RequeueAfter: 1 * time.Minute}, returnErr
 	}
 	for _, targetNamespace := range namespaces {
@@ -124,23 +125,23 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 		r.Log.V(1).Info("Encountered errors", "err_count", errCount)
 		returnErr = fmt.Errorf("%v errors occured during reconcilement", errCount)
 	}
-	returnErr = r.updateConfig(rc, returnErr)
+	returnErr = r.updateStatus(rc, returnErr)
 	return ctrl.Result{RequeueAfter: 10 * time.Second}, returnErr
 }
 
-func (r *SyncConfigReconciler) updateConfig(rc *ReconciliationContext, reconcileErr error) error {
+func (r *SyncConfigReconciler) updateStatus(rc *ReconciliationContext, reconcileErr error) error {
 	if reconcileErr != nil {
 		rc.cfg.Status.ReconcileError = reconcileErr.Error()
 	} else {
 		// clear errors
 		rc.cfg.Status.ReconcileError = ""
 	}
-	err := r.Client.Update(rc.ctx, rc.cfg)
+	err := r.Client.Status().Update(rc.ctx, rc.cfg)
 	if err != nil {
-		r.Log.Error(err, "Could not update SyncConfig", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
+		r.Log.Error(err, "Could not update SyncConfig.", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
 		return err
 	}
-	r.Log.Info("Updated SyncConfig", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
+	r.Log.Info("Updated SyncConfig status.", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
 	return nil
 }
 
@@ -241,52 +242,6 @@ func (r *SyncConfigReconciler) getNamespaces(rc *ReconciliationContext) (namespa
 		}
 	}
 	return namespaces, err
-}
-
-func filterNamespacesByNames(names []string, namespaceList []corev1.Namespace) (namespaces []corev1.Namespace) {
-	nameLookup := make(map[string]bool, len(names))
-
-	for _, name := range names {
-		nameLookup[name] = true
-	}
-
-	for _, ns := range namespaceList {
-		if _, found := nameLookup[ns.Name]; found {
-			namespaces = append(namespaces, ns)
-		}
-	}
-	return namespaces
-}
-
-func replaceProjectName(replacement string, m map[string]interface{}) {
-	for k, v := range m {
-		if v == nil {
-			continue
-		}
-		switch v.(type) {
-		case string:
-			s := m[k].(string)
-			m[k] = strings.ReplaceAll(s, "${PROJECT_NAME}", replacement)
-		case int64:
-		case int32:
-		case int:
-		case bool:
-			continue
-		case []interface{}:
-			for _, elem := range v.([]interface{}) {
-				replaceProjectName(replacement, elem.(map[string]interface{}))
-			}
-		case interface{}:
-			replaceProjectName(replacement, m[k].(map[string]interface{}))
-		}
-	}
-}
-
-func namespaceFromString(namespace string) corev1.Namespace {
-	return corev1.Namespace{
-		TypeMeta:   metav1.TypeMeta{Kind: "Namespace", APIVersion: "v1"},
-		ObjectMeta: metav1.ObjectMeta{Name: namespace},
-	}
 }
 
 func (r *SyncConfigReconciler) recreateObject(rc *ReconciliationContext, obj *unstructured.Unstructured) error {

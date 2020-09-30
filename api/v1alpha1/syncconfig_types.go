@@ -49,7 +49,7 @@ type SyncConfigStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// ReconcileError contains any error messages during synchronization, if any
-	ReconcileError string `json:"reconcileerror,omitempty"`
+	ReconcileError string `json:"reconcileError,omitempty"`
 }
 
 // +kubebuilder:object:root=true

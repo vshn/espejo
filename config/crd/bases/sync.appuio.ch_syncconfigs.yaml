@@ -118,7 +118,7 @@ spec:
         status:
           description: SyncConfigStatus defines the observed state of SyncConfig
           properties:
-            reconcileerror:
+            reconcileError:
               description: ReconcileError contains any error messages during synchronization,
                 if any
               type: string

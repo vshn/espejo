@@ -137,7 +137,7 @@ e2e_test: setup_e2e_test build
 	@find e2e-test -type f -name *_test.sh | xargs -I % sh -c "echo --- TEST % && bash %"
 
 setup_e2e_test: export KUBECONFIG = $(KIND_KUBECONFIG)
-setup_e2e_test: $(KIND_BIN)
+setup_e2e_test: $(KIND_BIN) manifests
 	@kubectl config use-context kind-espejo
 	@kubectl apply -k config/crd
 

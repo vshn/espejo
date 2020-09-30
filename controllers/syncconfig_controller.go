@@ -64,18 +64,18 @@ func (r *SyncConfigReconciler) Map(object handler.MapObject) (reqs []reconcile.R
 		} else {
 			r.Log.Info("Could not get namespace status.", "namespace", object.Meta.GetName(), "error", err.Error())
 		}
-		return reqs
+		return
 	}
 	if ns.Status.Phase != corev1.NamespaceActive {
 		r.Log.V(1).Info("Namespace is not active, ignoring reconcile.", "namespace", ns.Name, "phase", ns.Status.Phase)
-		return reqs
+		return
 	}
 
 	r.Log.Info("Reconciling from Namespace event", "namespace", object.Meta.GetName())
 	err = r.Client.List(ctx, configList, &client.ListOptions{Namespace: r.WatchNamespace})
 	if err != nil {
 		r.Log.Error(err, "Could not get list of SyncConfig")
-		return reqs
+		return
 	}
 	for _, cfg := range configList.Items {
 		reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
@@ -83,7 +83,7 @@ func (r *SyncConfigReconciler) Map(object handler.MapObject) (reqs []reconcile.R
 			Namespace: cfg.Namespace,
 		}})
 	}
-	return reqs
+	return
 }
 
 // +kubebuilder:rbac:groups=sync.appuio.ch,resources=syncconfigs,verbs=get;list;watch;create;update;patch;delete

@@ -20,6 +20,7 @@ TESTBIN_DIR ?= ./testbin/bin
 
 KIND_BIN ?= $(TESTBIN_DIR)/kind
 KIND_VERSION ?= 0.9.0
+KIND_KUBECONFIG ?= ./testbin/kind-kubeconfig
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -130,22 +131,27 @@ bundle: manifests
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
 
-e2e_test: setup_system_test build
+# Export kubeconfig for make's child process but not for user
+e2e_test: export KUBECONFIG = $(KIND_KUBECONFIG)
+e2e_test: setup_e2e_test build
 	@find e2e-test -type f -name *_test.sh | xargs -I % sh -c "echo --- TEST % && bash %"
 
-setup_system_test: $(KIND_BIN)
+setup_e2e_test: export KUBECONFIG = $(KIND_KUBECONFIG)
+setup_e2e_test: $(KIND_BIN)
 	@kubectl config use-context kind-espejo
 	@kubectl apply -k config/crd
 
-run_kind: setup_system_test
+run_kind: setup_e2e_test
 	go run ./main.go
 
+$(KIND_BIN): export KUBECONFIG = $(KIND_KUBECONFIG)
 $(KIND_BIN): $(TESTBIN_DIR)
 	curl -Lo $(KIND_BIN) "https://kind.sigs.k8s.io/dl/v$(KIND_VERSION)/kind-$$(uname)-amd64"
 	chmod +x $(KIND_BIN)
 	$(KIND_BIN) create cluster --name espejo
 	kubectl cluster-info
 
+clean: export KUBECONFIG = $(KIND_KUBECONFIG)
 clean:
 	$(KIND_BIN) delete cluster --name espejo || true
 	rm -r testbin/ dist/ bin/ cover.out || true

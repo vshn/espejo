@@ -39,3 +39,9 @@ The Operator is implemented with the [Operator SDK](https://github.com/operator-
 ### End-to-End tests
 
 `make e2e_test` will run [Kubernetes in Docker](https://kind.sigs.k8s.io/) to simulate a real-world K8s cluster so we can install and run the operator on it. Docker and Kubectl are required.
+
+
+[build]: https://github.com/vshn/espejo/actions?query=workflow%3ABuild
+[releases]: https://github.com/vshn/espejo/releases
+[license]: https://github.com/vshn/espejo/blob/master/LICENSE
+[dockerhub]: https://hub.docker.com/r/vshn/espejo

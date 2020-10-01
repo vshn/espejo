@@ -74,6 +74,7 @@ func main() {
 		setupLog.Error(err, "could not parse interval")
 		os.Exit(1)
 	}
+	setupLog.V(1).Info("Configuration from flags", "config", config)
 	if err = (&controllers.SyncConfigReconciler{
 		Client:            mgr.GetClient(),
 		Log:               ctrl.Log.WithName("controllers").WithName("SyncConfig"),

@@ -118,18 +118,20 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 	}
 
 	for _, targetNamespace := range namespaces {
-		var e = int64(0)
 		if targetNamespace.Status.Phase == corev1.NamespaceActive {
-			deleteCount, e = r.deleteItems(rc, targetNamespace)
-			syncCount, failCount = r.syncItems(rc, targetNamespace)
-			failCount += e
+			tmpCount, tmpFailed := r.deleteItems(rc, targetNamespace)
+			deleteCount += tmpCount
+			failCount += tmpFailed
+			tmpCount, tmpFailed = r.syncItems(rc, targetNamespace)
+			syncCount += tmpCount
+			failCount += tmpFailed
 		}
 	}
 	if failCount > 0 {
 		r.Log.V(1).Info("Encountered errors", "err_count", failCount)
 	}
 	returnErr = r.updateStatus(rc, syncCount, deleteCount, failCount, reconcileErr)
-	return ctrl.Result{RequeueAfter: 10 * time.Second}, returnErr
+	return ctrl.Result{RequeueAfter: r.ReconcileInterval}, returnErr
 }
 
 func (r *SyncConfigReconciler) updateStatus(rc *ReconciliationContext, syncCount, deleteCount, failCount int64, reconcileErr error) error {
@@ -205,21 +207,21 @@ func (r *SyncConfigReconciler) syncItems(rc *ReconciliationContext, targetNamesp
 					err = r.recreateObject(rc, unstructObj)
 					if err != nil {
 						failCount++
-						r.Log.WithValues("failCount", failCount).Error(err, "Error recreating", getLoggingKeysAndValues(unstructObj)...)
+						r.Log.Error(err, "Error recreating", getLoggingKeysAndValues(unstructObj)...)
 					}
 					syncCount++
-					r.Log.WithValues("syncCount", syncCount).Info("Recreated", getLoggingKeysAndValues(unstructObj)...)
+					r.Log.Info("Recreated", getLoggingKeysAndValues(unstructObj)...)
 				} else {
 					failCount++
-					r.Log.WithValues("failCount", failCount).Error(err, "Error updating", getLoggingKeysAndValues(unstructObj)...)
+					r.Log.Error(err, "Error updating", getLoggingKeysAndValues(unstructObj)...)
 				}
 			} else {
 				syncCount++
-				r.Log.WithValues("syncCount", syncCount).Info("Updated", getLoggingKeysAndValues(unstructObj)...)
+				r.Log.Info("Updated", getLoggingKeysAndValues(unstructObj)...)
 			}
 		} else {
 			syncCount++
-			r.Log.WithValues("syncCount", syncCount).Info("Created", getLoggingKeysAndValues(unstructObj)...)
+			r.Log.Info("Created", getLoggingKeysAndValues(unstructObj)...)
 		}
 
 	}

@@ -17,6 +17,7 @@ IMG ?= controller:latest
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
 TESTBIN_DIR ?= ./testbin/bin
+CRD_FILE ?= espejo-crd.yaml
 
 KIND_BIN ?= $(TESTBIN_DIR)/kind
 KIND_VERSION ?= 0.9.0
@@ -74,6 +75,10 @@ deploy: manifests kustomize
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+
+# Generate CRD to file
+crd: manifests kustomize
+	$(KUSTOMIZE) build config/crd > $(CRD_FILE)
 
 # Run go fmt against code
 fmt:

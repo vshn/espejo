@@ -40,3 +40,5 @@ release:
   github:
     owner: vshn
     name: espejo
+  extra_files:
+  - glob: ./espejo-crd.yaml

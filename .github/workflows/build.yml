@@ -26,6 +26,8 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
+    - name: Generate artifacts
+      run: make crd
     - uses: goreleaser/goreleaser-action@v2
       with:
         args: release --snapshot --skip-sign
@@ -43,5 +45,5 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
-    - name: Run integration tests
-      run: make integration_test
+    - name: Run tests
+      run: make integration_test e2e_test

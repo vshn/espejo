@@ -9,6 +9,7 @@ import (
 	"context"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	syncv1alpha1 "github.com/vshn/espejo/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -21,11 +22,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"testing"
-
-	syncv1alpha1 "github.com/vshn/espejo/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -117,6 +118,13 @@ var _ = Describe("SyncConfig controller", func() {
 		key := types.NamespacedName{Namespace: ns, Name: cm.Name}
 		Expect(k8sClient.Get(context.Background(), key, syncResult)).ToNot(HaveOccurred())
 		Expect(syncResult.Data["PROJECT_NAME"]).To(BeEquivalentTo(ns))
+
+		newSC := &syncv1alpha1.SyncConfig{ObjectMeta: toObjectMeta(sc.Name, sc.Namespace)}
+		err = k8sClient.Get(context.Background(), toObjectKey(newSC), newSC)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(newSC.Status.DeletedItemCount).To(Equal(int64(0)))
+		Expect(newSC.Status.FailedItemCount).To(Equal(int64(0)))
+		Expect(newSC.Status.SynchronizedItemCount).To(Equal(int64(1)))
 	})
 
 	It("should delete existing resources from SyncConfig", func() {
@@ -152,6 +160,50 @@ var _ = Describe("SyncConfig controller", func() {
 		By("verify that resource doesn't exist anymore")
 		err = k8sClient.Get(context.Background(), types.NamespacedName{Namespace: ns, Name: cm.Name}, &v1.ConfigMap{})
 		Expect(err).To(HaveOccurred())
+
+		newSC := &syncv1alpha1.SyncConfig{ObjectMeta: toObjectMeta(sc.Name, sc.Namespace)}
+		err = k8sClient.Get(context.Background(), toObjectKey(newSC), newSC)
+		Expect(err).ToNot(HaveOccurred())
+		syncConfigReconciler.Log.Info("status", "status", newSC.Status)
+		Expect(newSC.Status.DeletedItemCount).To(Equal(int64(1)))
+		Expect(newSC.Status.FailedItemCount).To(Equal(int64(0)))
+		Expect(newSC.Status.SynchronizedItemCount).To(Equal(int64(0)))
+	})
+
+	It("should map namespace updates into list of reconcile objects", func() {
+
+		By("setting up test resources")
+		ns := "map"
+		sourceNs := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+		sc := &syncv1alpha1.SyncConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: sourceNs.Name},
+		}
+		Expect(k8sClient.Create(context.Background(), sourceNs)).ToNot(HaveOccurred())
+		Expect(k8sClient.Create(context.Background(), sc)).ToNot(HaveOccurred())
+
+		By("mapping namespace into reconcile object")
+		result := syncConfigReconciler.Map(handler.MapObject{Meta: sourceNs.GetObjectMeta()})
+		Expect(result).ToNot(BeEmpty())
+		Expect(result).To(ContainElement(reconcile.Request{NamespacedName: types.NamespacedName{Name: sc.Name, Namespace: sc.Namespace}}))
+	})
+
+	It("should map namespace updates into list of reconcile objects with namespace filter", func() {
+
+		By("setting up test resources")
+		ns := "map-filtered"
+		sourceNs := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+		sc := &syncv1alpha1.SyncConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: sourceNs.Name},
+		}
+		syncConfigReconciler.WatchNamespace = ns
+		Expect(k8sClient.Create(context.Background(), sourceNs)).ToNot(HaveOccurred())
+		Expect(k8sClient.Create(context.Background(), sc)).ToNot(HaveOccurred())
+
+		By("mapping namespace into reconcile object")
+		result := syncConfigReconciler.Map(handler.MapObject{Meta: sourceNs.GetObjectMeta()})
+		Expect(result).To(HaveLen(1))
+		Expect(result).To(ContainElement(reconcile.Request{NamespacedName: types.NamespacedName{Name: sc.Name, Namespace: sc.Namespace}}))
+		syncConfigReconciler.WatchNamespace = ""
 	})
 })
 
@@ -161,4 +213,15 @@ func toUnstructured(configMap *v1.ConfigMap) unstructured.Unstructured {
 	Expect(err).ToNot(HaveOccurred())
 	obj.SetUnstructuredContent(m)
 	return obj
+}
+
+func toObjectKey(config *syncv1alpha1.SyncConfig) types.NamespacedName {
+	return types.NamespacedName{Name: config.Name, Namespace: config.Namespace}
+}
+
+func toObjectMeta(name, namespace string) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:      name,
+		Namespace: namespace,
+	}
 }

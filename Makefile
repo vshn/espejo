@@ -16,6 +16,13 @@ IMG ?= controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
+TESTBIN_DIR ?= ./testbin/bin
+CRD_FILE ?= espejo-crd.yaml
+
+KIND_BIN ?= $(TESTBIN_DIR)/kind
+KIND_VERSION ?= 0.9.0
+KIND_KUBECONFIG ?= ./testbin/kind-kubeconfig
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -30,13 +37,17 @@ all: build
 
 # Run tests (see https://sdk.operatorframework.io/docs/building-operators/golang/references/envtest-setup)
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
-integration_test: generate fmt vet manifests
-	mkdir -p ${ENVTEST_ASSETS_DIR}
+
+$(TESTBIN_DIR):
+	mkdir -p $(TESTBIN_DIR)
+
+integration_test: export ENVTEST_K8S_VERSION = 1.19.0
+integration_test: generate fmt vet manifests $(TESTBIN_DIR)
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/master/hack/setup-envtest.sh
 	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out -ginkgo.v
 
 .PHONY: dist
-dist:
+dist: generate fmt vet
 	goreleaser release --snapshot --rm-dist --skip-sign
 
 .PHONY: build
@@ -64,6 +75,10 @@ deploy: manifests kustomize
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+
+# Generate CRD to file
+crd: manifests kustomize
+	$(KUSTOMIZE) build config/crd > $(CRD_FILE)
 
 # Run go fmt against code
 fmt:
@@ -120,3 +135,28 @@ bundle: manifests
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
+
+# Export kubeconfig for make's child process but not for user
+e2e_test: export KUBECONFIG = $(KIND_KUBECONFIG)
+e2e_test: setup_e2e_test build
+	@find e2e-test -type f -name *_test.sh | xargs -I % sh -c "echo --- TEST % && bash %"
+
+setup_e2e_test: export KUBECONFIG = $(KIND_KUBECONFIG)
+setup_e2e_test: $(KIND_BIN) manifests
+	@kubectl config use-context kind-espejo
+	@kubectl apply -k config/crd
+
+run_kind: setup_e2e_test
+	go run ./main.go
+
+$(KIND_BIN): export KUBECONFIG = $(KIND_KUBECONFIG)
+$(KIND_BIN): $(TESTBIN_DIR)
+	curl -Lo $(KIND_BIN) "https://kind.sigs.k8s.io/dl/v$(KIND_VERSION)/kind-$$(uname)-amd64"
+	chmod +x $(KIND_BIN)
+	$(KIND_BIN) create cluster --name espejo
+	kubectl cluster-info
+
+clean: export KUBECONFIG = $(KIND_KUBECONFIG)
+clean:
+	$(KIND_BIN) delete cluster --name espejo || true
+	rm -r testbin/ dist/ bin/ cover.out || true

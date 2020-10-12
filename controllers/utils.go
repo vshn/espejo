@@ -5,6 +5,7 @@ import (
 	"k8s.io/api/core/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"regexp"
 	"strings"
 )
 
@@ -53,16 +54,23 @@ func namespaceFromString(namespace string) v1.Namespace {
 	}
 }
 
-func filterNamespacesByNames(names []string, namespaceList []v1.Namespace) (namespaces []v1.Namespace) {
-	nameLookup := make(map[string]bool, len(names))
+func includeNamespacesByNames(patterns []string, namespaceList []v1.Namespace) (namespaces []v1.Namespace) {
+	var compiledPatterns []*regexp.Regexp
 
-	for _, name := range names {
-		nameLookup[name] = true
+	for _, pattern := range patterns {
+		rgx, err := regexp.Compile(pattern)
+		if err == nil {
+			compiledPatterns = append(compiledPatterns, rgx)
+		}
 	}
 
+NamespaceLoop:
 	for _, ns := range namespaceList {
-		if _, found := nameLookup[ns.Name]; found {
-			namespaces = append(namespaces, ns)
+		for _, regex := range compiledPatterns {
+			if regex.MatchString(ns.Name) {
+				namespaces = append(namespaces, ns)
+				continue NamespaceLoop
+			}
 		}
 	}
 	return namespaces

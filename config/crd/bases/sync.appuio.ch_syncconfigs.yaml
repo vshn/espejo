@@ -103,7 +103,9 @@ spec:
                       type: object
                   type: object
                 matchNames:
-                  description: MatchNames lists namespace names to be targeted
+                  description: MatchNames lists namespace names to be targeted. Each
+                    entry can be a Regex pattern. A namespace is included if at least
+                    one pattern matches. Invalid patterns will be ignored.
                   items:
                     type: string
                   type: array

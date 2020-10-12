@@ -41,7 +41,8 @@ type (
 	NamespaceSelector struct {
 		// LabelSelector of namespaces to be targeted
 		LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
-		// MatchNames lists namespace names to be targeted
+		// MatchNames lists namespace names to be targeted. Each entry can be a Regex pattern. A namespace is included
+		// if at least one pattern matches. Invalid patterns will be ignored.
 		MatchNames []string `json:"matchNames,omitempty"`
 	}
 

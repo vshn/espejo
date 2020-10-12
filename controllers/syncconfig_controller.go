@@ -262,7 +262,7 @@ func (r *SyncConfigReconciler) getNamespaces(rc *ReconciliationContext) (namespa
 		namespaces = []corev1.Namespace{namespaceFromString(rc.cfg.Namespace)}
 		return namespaces, nil
 	}
-	namespaces = filterNamespacesByNames(rc.cfg.Spec.NamespaceSelector.MatchNames, namespaceList.Items)
+	namespaces = includeNamespacesByNames(rc.cfg.Spec.NamespaceSelector.MatchNames, namespaceList.Items)
 
 	labelSelector, err := metav1.LabelSelectorAsSelector(rc.cfg.Spec.NamespaceSelector.LabelSelector)
 	if err != nil {

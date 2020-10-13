@@ -5,7 +5,6 @@ import (
 	"k8s.io/api/core/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"regexp"
 	"strings"
 )
 
@@ -54,19 +53,10 @@ func namespaceFromString(namespace string) v1.Namespace {
 	}
 }
 
-func includeNamespacesByNames(patterns []string, namespaceList []v1.Namespace) (namespaces []v1.Namespace) {
-	var compiledPatterns []*regexp.Regexp
-
-	for _, pattern := range patterns {
-		rgx, err := regexp.Compile(pattern)
-		if err == nil {
-			compiledPatterns = append(compiledPatterns, rgx)
-		}
-	}
-
+func includeNamespacesByNames(rc *ReconciliationContext, namespaceList []v1.Namespace) (namespaces []v1.Namespace) {
 NamespaceLoop:
 	for _, ns := range namespaceList {
-		for _, regex := range compiledPatterns {
+		for _, regex := range rc.matchNamesRegex {
 			if regex.MatchString(ns.Name) {
 				namespaces = append(namespaces, ns)
 				continue NamespaceLoop
@@ -77,6 +67,6 @@ NamespaceLoop:
 }
 
 // isReconcileFailed returns true if no objects could be synced or deleted and failedCount is > 0
-func isReconcileFailed(syncCount, deleteCount, failedCount int64) bool {
-	return syncCount == 0 && deleteCount == 0 && failedCount > 0
+func isReconcileFailed(rc *ReconciliationContext) bool {
+	return rc.syncCount == 0 && rc.deleteCount == 0 && rc.failCount > 0
 }

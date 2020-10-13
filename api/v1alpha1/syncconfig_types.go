@@ -39,25 +39,27 @@ type (
 
 	// NamespaceSelector provides a way to specify targeted namespaces
 	NamespaceSelector struct {
-		// LabelSelector of namespaces to be targeted
+		// LabelSelector of namespaces to be targeted. Can be combined with MatchNames to include unlabelled namespaces.
 		LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
 		// MatchNames lists namespace names to be targeted. Each entry can be a Regex pattern. A namespace is included
-		// if at least one pattern matches. Invalid patterns will be ignored.
+		// if at least one pattern matches. Invalid patterns will cause the sync to be cancelled and the status conditions
+		// will contain the error message.
 		MatchNames []string `json:"matchNames,omitempty"`
 	}
 
 	// SyncConfigStatus defines the observed state of SyncConfig
 	SyncConfigStatus struct {
-		// Conditions contain the states of the SyncConfig
+		// Conditions contain the states of the SyncConfig. A SyncConfig is considered Ready when at least one item has been synced.
 		Conditions []SyncConfigCondition `json:"conditions,omitempty" patchStrategy:"merge"`
-		// SynchronizedItemCount holds the number of created or updated objects in the targeted namespaces.
+		// SynchronizedItemCount holds the accumulated number of created or updated objects in the targeted namespaces.
 		SynchronizedItemCount int64 `json:"synchronizedItemCount"`
-		// DeletedItemCount holds the number of deleted objects from targeted namespaces. Inexisting items do not get counted.
+		// DeletedItemCount holds the accumulated number of deleted objects from targeted namespaces. Inexisting items do not get counted.
 		DeletedItemCount int64 `json:"deletedItemCount"`
-		// FailedItemCount holds the number of objects that could not be created, updated or deleted. Inexisting items do not get counted.
+		// FailedItemCount holds the accumulated number of objects that could not be created, updated or deleted. Inexisting items do not get counted.
 		FailedItemCount int64 `json:"failedItemCount"`
 	}
 
+	// SyncConfigCondition describes a status condition of a SyncConfig
 	SyncConfigCondition struct {
 		Type               SyncConfigConditionType `json:"type"`
 		Status             v1.ConditionStatus      `json:"status"`
@@ -65,6 +67,7 @@ type (
 		Reason             string                  `json:"reason,omitempty"`
 		Message            string                  `json:"message,omitempty"`
 	}
+	// SyncConfigConditionType identifies the type of a condition. The type is unique in the Status field.
 	SyncConfigConditionType string
 
 	// +kubebuilder:object:root=true
@@ -88,6 +91,8 @@ type (
 		Items           []SyncConfig `json:"items"`
 		Prune           bool         `json:"prune,omitempty"`
 	}
+
+	SyncConfigConditionMap map[SyncConfigConditionType]SyncConfigCondition
 )
 
 const (
@@ -96,6 +101,14 @@ const (
 	// SyncConfigErrored is given when no objects could be synced or deleted and the failed object count is > 0 or
 	// any other reconciliation error.
 	SyncConfigErrored SyncConfigConditionType = "Errored"
+	// SyncConfigInvalid is given when the the SyncConfig Spec contains invalid properties. SyncConfigs will not be
+	// reconciled.
+	SyncConfigInvalid SyncConfigConditionType = "Invalid"
+
+	SyncReasonFailed          = "SynchronizationFailed"
+	SyncReasonSucceeded       = "SynchronizationSucceeded"
+	SyncReasonFailedWithError = "SynchronizationFailedWithError"
+	SyncReasonConfigInvalid   = "InvalidSyncConfigSpec"
 )
 
 func init() {

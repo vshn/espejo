@@ -9,7 +9,7 @@ import (
 	"context"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	syncv1alpha1 "github.com/vshn/espejo/api/v1alpha1"
+	. "github.com/vshn/espejo/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -61,7 +61,7 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
-	err = syncv1alpha1.AddToScheme(scheme.Scheme)
+	err = AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
@@ -96,11 +96,11 @@ var _ = Describe("SyncConfig controller", func() {
 			},
 			Data: map[string]string{"PROJECT_NAME": "${PROJECT_NAME}"},
 		}
-		sc := &syncv1alpha1.SyncConfig{
+		sc := &SyncConfig{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: ns},
-			Spec: syncv1alpha1.SyncConfigSpec{
+			Spec: SyncConfigSpec{
 				SyncItems:         []unstructured.Unstructured{toUnstructured(cm)},
-				NamespaceSelector: &syncv1alpha1.NamespaceSelector{MatchNames: []string{ns}},
+				NamespaceSelector: &NamespaceSelector{MatchNames: []string{ns}},
 			},
 		}
 		Expect(k8sClient.Create(context.Background(), sourceNs)).ToNot(HaveOccurred())
@@ -119,7 +119,7 @@ var _ = Describe("SyncConfig controller", func() {
 		Expect(k8sClient.Get(context.Background(), key, syncResult)).ToNot(HaveOccurred())
 		Expect(syncResult.Data["PROJECT_NAME"]).To(BeEquivalentTo(ns))
 
-		newSC := &syncv1alpha1.SyncConfig{ObjectMeta: toObjectMeta(sc.Name, sc.Namespace)}
+		newSC := &SyncConfig{ObjectMeta: toObjectMeta(sc.Name, sc.Namespace)}
 		err = k8sClient.Get(context.Background(), toObjectKey(newSC), newSC)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(newSC.Status.DeletedItemCount).To(Equal(int64(0)))
@@ -139,11 +139,11 @@ var _ = Describe("SyncConfig controller", func() {
 				Namespace: ns,
 			},
 		}
-		sc := &syncv1alpha1.SyncConfig{
+		sc := &SyncConfig{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: ns},
-			Spec: syncv1alpha1.SyncConfigSpec{
-				DeleteItems:       []syncv1alpha1.DeleteMeta{{Name: cm.Name, Kind: cm.Kind, APIVersion: cm.APIVersion}},
-				NamespaceSelector: &syncv1alpha1.NamespaceSelector{MatchNames: []string{ns}},
+			Spec: SyncConfigSpec{
+				DeleteItems:       []DeleteMeta{{Name: cm.Name, Kind: cm.Kind, APIVersion: cm.APIVersion}},
+				NamespaceSelector: &NamespaceSelector{MatchNames: []string{ns}},
 			},
 		}
 		Expect(k8sClient.Create(context.Background(), sourceNs)).ToNot(HaveOccurred())
@@ -161,7 +161,7 @@ var _ = Describe("SyncConfig controller", func() {
 		err = k8sClient.Get(context.Background(), types.NamespacedName{Namespace: ns, Name: cm.Name}, &v1.ConfigMap{})
 		Expect(err).To(HaveOccurred())
 
-		newSC := &syncv1alpha1.SyncConfig{ObjectMeta: toObjectMeta(sc.Name, sc.Namespace)}
+		newSC := &SyncConfig{ObjectMeta: toObjectMeta(sc.Name, sc.Namespace)}
 		err = k8sClient.Get(context.Background(), toObjectKey(newSC), newSC)
 		Expect(err).ToNot(HaveOccurred())
 		syncConfigReconciler.Log.Info("status", "status", newSC.Status)
@@ -175,7 +175,7 @@ var _ = Describe("SyncConfig controller", func() {
 		By("setting up test resources")
 		ns := "map"
 		sourceNs := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
-		sc := &syncv1alpha1.SyncConfig{
+		sc := &SyncConfig{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: sourceNs.Name},
 		}
 		Expect(k8sClient.Create(context.Background(), sourceNs)).ToNot(HaveOccurred())
@@ -192,7 +192,7 @@ var _ = Describe("SyncConfig controller", func() {
 		By("setting up test resources")
 		ns := "map-filtered"
 		sourceNs := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
-		sc := &syncv1alpha1.SyncConfig{
+		sc := &SyncConfig{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: sourceNs.Name},
 		}
 		syncConfigReconciler.WatchNamespace = ns
@@ -205,6 +205,36 @@ var _ = Describe("SyncConfig controller", func() {
 		Expect(result).To(ContainElement(reconcile.Request{NamespacedName: types.NamespacedName{Name: sc.Name, Namespace: sc.Namespace}}))
 		syncConfigReconciler.WatchNamespace = ""
 	})
+
+	It("should not reconcile SyncConfig spec with invalid matchNames pattern", func() {
+
+		By("setting up test resources")
+		ns := "invalid-regex"
+		sourceNs := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+		sc := &SyncConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: sourceNs.Name},
+			Spec: SyncConfigSpec{
+				NamespaceSelector: &NamespaceSelector{
+					MatchNames: []string{"["},
+				},
+			},
+		}
+		Expect(k8sClient.Create(context.Background(), sourceNs)).ToNot(HaveOccurred())
+		Expect(k8sClient.Create(context.Background(), sc)).ToNot(HaveOccurred())
+
+		By("reconciling sync config")
+		result, err := syncConfigReconciler.Reconcile(ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: sc.Name, Namespace: sc.Namespace},
+		})
+		Expect(result.Requeue).To(BeFalse())
+
+		By("verifying sync config status")
+		newSC := &SyncConfig{ObjectMeta: toObjectMeta(sc.Name, sc.Namespace)}
+		err = k8sClient.Get(context.Background(), toObjectKey(newSC), newSC)
+		Expect(err).ToNot(HaveOccurred())
+		conditions := mapConditionsToType(newSC.Status.Conditions)
+		Expect(conditions[SyncConfigInvalid].Message).To(ContainSubstring("error parsing regexp"))
+	})
 })
 
 func toUnstructured(configMap *v1.ConfigMap) unstructured.Unstructured {
@@ -215,7 +245,7 @@ func toUnstructured(configMap *v1.ConfigMap) unstructured.Unstructured {
 	return obj
 }
 
-func toObjectKey(config *syncv1alpha1.SyncConfig) types.NamespacedName {
+func toObjectKey(config *SyncConfig) types.NamespacedName {
 	return types.NamespacedName{Name: config.Name, Namespace: config.Namespace}
 }
 

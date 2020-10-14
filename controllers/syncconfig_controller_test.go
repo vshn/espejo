@@ -108,7 +108,7 @@ var _ = Describe("SyncConfig controller", func() {
 
 		By("reconciling sync config")
 		result, err := syncConfigReconciler.Reconcile(ctrl.Request{
-			NamespacedName: types.NamespacedName{Name: sc.Name, Namespace: sc.Namespace},
+			NamespacedName: toObjectKey(sc),
 		})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(result).ToNot(BeNil())
@@ -152,7 +152,7 @@ var _ = Describe("SyncConfig controller", func() {
 
 		By("reconciling sync config")
 		result, err := syncConfigReconciler.Reconcile(ctrl.Request{
-			NamespacedName: types.NamespacedName{Name: sc.Name, Namespace: sc.Namespace},
+			NamespacedName: toObjectKey(sc),
 		})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(result).ToNot(BeNil())
@@ -206,25 +206,21 @@ var _ = Describe("SyncConfig controller", func() {
 		syncConfigReconciler.WatchNamespace = ""
 	})
 
-	It("should not reconcile SyncConfig spec with invalid matchNames pattern", func() {
+	It("should not reconcile SyncConfig upon failed validation", func() {
 
 		By("setting up test resources")
-		ns := "invalid-regex"
+		ns := "validation-fail"
 		sourceNs := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
 		sc := &SyncConfig{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: sourceNs.Name},
-			Spec: SyncConfigSpec{
-				NamespaceSelector: &NamespaceSelector{
-					MatchNames: []string{"["},
-				},
-			},
+			Spec:       SyncConfigSpec{},
 		}
 		Expect(k8sClient.Create(context.Background(), sourceNs)).ToNot(HaveOccurred())
 		Expect(k8sClient.Create(context.Background(), sc)).ToNot(HaveOccurred())
 
 		By("reconciling sync config")
 		result, err := syncConfigReconciler.Reconcile(ctrl.Request{
-			NamespacedName: types.NamespacedName{Name: sc.Name, Namespace: sc.Namespace},
+			NamespacedName: toObjectKey(sc),
 		})
 		Expect(result.Requeue).To(BeFalse())
 
@@ -233,7 +229,7 @@ var _ = Describe("SyncConfig controller", func() {
 		err = k8sClient.Get(context.Background(), toObjectKey(newSC), newSC)
 		Expect(err).ToNot(HaveOccurred())
 		conditions := mapConditionsToType(newSC.Status.Conditions)
-		Expect(conditions[SyncConfigInvalid].Message).To(ContainSubstring("error parsing regexp"))
+		Expect(conditions).To(HaveKey(SyncConfigInvalid))
 	})
 })
 

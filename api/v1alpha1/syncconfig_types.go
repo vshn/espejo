@@ -41,10 +41,15 @@ type (
 	NamespaceSelector struct {
 		// LabelSelector of namespaces to be targeted. Can be combined with MatchNames to include unlabelled namespaces.
 		LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
-		// MatchNames lists namespace names to be targeted. Each entry can be a Regex pattern. A namespace is included
-		// if at least one pattern matches. Invalid patterns will cause the sync to be cancelled and the status conditions
-		// will contain the error message.
+		// MatchNames lists namespace names to be targeted. Each entry can be a Regex pattern.
+		// A namespace is included if at least one pattern matches.
+		// Invalid patterns will cause the sync to be cancelled and the status conditions will contain the error message.
 		MatchNames []string `json:"matchNames,omitempty"`
+		// IgnoreNames lists namespace names to be ignored. Each entry can be a Regex pattern and if they match
+		// the namespaces will be excluded from the sync even if matching in "matchNames" or via LabelSelector.
+		// A namespace is ignored if at least one pattern matches.
+		// Invalid patterns will cause the sync to be cancelled and the status conditions will contain the error message.
+		IgnoreNames []string `json:"ignoreNames,omitempty"`
 	}
 
 	// SyncConfigStatus defines the observed state of SyncConfig

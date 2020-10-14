@@ -40,13 +40,15 @@ type (
 	}
 	// ReconciliationContext holds the parameters of a single SyncConfig reconciliation
 	ReconciliationContext struct {
-		ctx             context.Context
-		cfg             *syncv1alpha1.SyncConfig
-		conditions      map[syncv1alpha1.SyncConfigConditionType]syncv1alpha1.SyncConfigCondition
-		matchNamesRegex []*regexp.Regexp
-		syncCount       int64
-		deleteCount     int64
-		failCount       int64
+		ctx              context.Context
+		cfg              *syncv1alpha1.SyncConfig
+		conditions       map[syncv1alpha1.SyncConfigConditionType]syncv1alpha1.SyncConfigCondition
+		matchNamesRegex  []*regexp.Regexp
+		ignoreNamesRegex []*regexp.Regexp
+		nsSelector       labels.Selector
+		syncCount        int64
+		deleteCount      int64
+		failCount        int64
 	}
 )
 
@@ -229,24 +231,7 @@ func (r *SyncConfigReconciler) getNamespaces(rc *ReconciliationContext) (namespa
 		return []corev1.Namespace{}, err
 	}
 
-	if rc.cfg.Spec.NamespaceSelector == nil {
-		r.Log.Info("spec.namespaceSelector was not given, using namespace from SyncConfig", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
-		namespaces = []corev1.Namespace{namespaceFromString(rc.cfg.Namespace)}
-		return namespaces, nil
-	}
-	namespaces = includeNamespacesByNames(rc, namespaceList.Items)
-
-	labelSelector, err := metav1.LabelSelectorAsSelector(rc.cfg.Spec.NamespaceSelector.LabelSelector)
-	if err != nil {
-		return namespaces, err
-	}
-
-	for _, ns := range namespaceList.Items {
-		if labelSelector.Matches(labels.Set(ns.GetLabels())) {
-			namespaces = append(namespaces, ns)
-		}
-	}
-	return namespaces, err
+	return filterNamespaces(rc, namespaceList.Items), nil
 }
 
 func (r *SyncConfigReconciler) recreateObject(rc *ReconciliationContext, obj *unstructured.Unstructured) error {
@@ -265,16 +250,5 @@ func (r *SyncConfigReconciler) recreateObject(rc *ReconciliationContext, obj *un
 		return err
 	}
 
-	return nil
-}
-
-func (r *SyncConfigReconciler) validateSpec(rc *ReconciliationContext) error {
-	for _, pattern := range rc.cfg.Spec.NamespaceSelector.MatchNames {
-		rgx, err := regexp.Compile(pattern)
-		if err != nil {
-			return fmt.Errorf(".spec.matchNames pattern invalid: %w", err)
-		}
-		rc.matchNamesRegex = append(rc.matchNamesRegex, rgx)
-	}
 	return nil
 }

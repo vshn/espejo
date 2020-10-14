@@ -52,21 +52,3 @@ func namespaceFromString(namespace string) v1.Namespace {
 		ObjectMeta: v12.ObjectMeta{Name: namespace},
 	}
 }
-
-func includeNamespacesByNames(rc *ReconciliationContext, namespaceList []v1.Namespace) (namespaces []v1.Namespace) {
-NamespaceLoop:
-	for _, ns := range namespaceList {
-		for _, regex := range rc.matchNamesRegex {
-			if regex.MatchString(ns.Name) {
-				namespaces = append(namespaces, ns)
-				continue NamespaceLoop
-			}
-		}
-	}
-	return namespaces
-}
-
-// isReconcileFailed returns true if no objects could be synced or deleted and failedCount is > 0
-func isReconcileFailed(rc *ReconciliationContext) bool {
-	return rc.syncCount == 0 && rc.deleteCount == 0 && rc.failCount > 0
-}

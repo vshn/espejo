@@ -58,6 +58,16 @@ spec:
             namespaceSelector:
               description: NamespaceSelector defines which namespaces should be targeted
               properties:
+                ignoreNames:
+                  description: IgnoreNames lists namespace names to be ignored. Each
+                    entry can be a Regex pattern and if they match the namespaces
+                    will be excluded from the sync even if matching in "matchNames"
+                    or via LabelSelector. A namespace is ignored if at least one pattern
+                    matches. Invalid patterns will cause the sync to be cancelled
+                    and the status conditions will contain the error message.
+                  items:
+                    type: string
+                  type: array
                 labelSelector:
                   description: LabelSelector of namespaces to be targeted. Can be
                     combined with MatchNames to include unlabelled namespaces.

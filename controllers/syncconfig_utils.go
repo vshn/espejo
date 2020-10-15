@@ -9,7 +9,7 @@ import (
 	"regexp"
 )
 
-func (r *SyncConfigReconciler) validateSpec(rc *ReconciliationContext) error {
+func (rc *ReconciliationContext) validateSpec() error {
 	spec := rc.cfg.Spec
 	if hasNoNamespaceSelector(rc.cfg.Spec) {
 		return fmt.Errorf("either .spec.namespaceSelector.matchNames or .spec.namespaceSelector.labelSelector is required")
@@ -18,14 +18,15 @@ func (r *SyncConfigReconciler) validateSpec(rc *ReconciliationContext) error {
 		return fmt.Errorf("either spec.deleteItems or .spec.syncItems is required")
 	}
 	for _, pattern := range spec.NamespaceSelector.MatchNames {
-		rgx, err := regexp.Compile(pattern)
+		// Adding ^ and $ even if they exist already should not be a problem, the string would still match with ^^pattern$$
+		rgx, err := regexp.Compile(fmt.Sprintf("^%s$", pattern))
 		if err != nil {
 			return fmt.Errorf(".spec.namespaceSelector.matchNames pattern invalid: %w", err)
 		}
 		rc.matchNamesRegex = append(rc.matchNamesRegex, rgx)
 	}
 	for _, pattern := range spec.NamespaceSelector.IgnoreNames {
-		rgx, err := regexp.Compile(pattern)
+		rgx, err := regexp.Compile(fmt.Sprintf("^%s$", pattern))
 		if err != nil {
 			return fmt.Errorf(".spec.namespaceSelector.ignoreNames pattern invalid: %w", err)
 		}

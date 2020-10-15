@@ -124,6 +124,7 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 		rc.SetStatusCondition(CreateStatusConditionReady(false))
 		return ctrl.Result{Requeue: false}, r.updateStatus(rc)
 	}
+	rc.SetStatusIfExisting(syncv1alpha1.SyncConfigInvalid, corev1.ConditionFalse)
 
 	namespaces, reconcileErr := r.getNamespaces(rc)
 	if reconcileErr != nil {

@@ -32,6 +32,14 @@ func (rc *ReconciliationContext) SetStatusCondition(condition SyncConfigConditio
 	rc.conditions[condition.Type] = condition
 }
 
+// SetStatusIfExisting sets the condition of the given type to the given status, if the condition already exists, otherwise noop
+func (rc *ReconciliationContext) SetStatusIfExisting(conditionType SyncConfigConditionType, status v1.ConditionStatus) {
+	if condition, found := rc.conditions[conditionType]; found {
+		condition.Status = status
+		rc.conditions[conditionType] = condition
+	}
+}
+
 // CreateStatusConditionReady is a shortcut for adding a SyncConfigReady condition.
 func CreateStatusConditionReady(isReady bool) SyncConfigCondition {
 	readyCondition := SyncConfigCondition{

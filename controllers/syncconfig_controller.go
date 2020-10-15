@@ -118,12 +118,13 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 		conditions: make(map[syncv1alpha1.SyncConfigConditionType]syncv1alpha1.SyncConfigCondition),
 	}
 	r.Log.Info("Reconciling", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
-	err = r.validateSpec(rc)
+	err = rc.validateSpec()
 	if err != nil {
 		rc.SetStatusCondition(CreateStatusConditionInvalid(err))
 		rc.SetStatusCondition(CreateStatusConditionReady(false))
 		return ctrl.Result{Requeue: false}, r.updateStatus(rc)
 	}
+	rc.SetStatusIfExisting(syncv1alpha1.SyncConfigInvalid, corev1.ConditionFalse)
 
 	namespaces, reconcileErr := r.getNamespaces(rc)
 	if reconcileErr != nil {

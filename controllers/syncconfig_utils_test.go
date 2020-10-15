@@ -51,7 +51,7 @@ var _ = Describe("SyncConfig utils", func() {
 		}}
 		rc := ReconciliationContext{cfg: cfg}
 
-		err := syncConfigReconciler.validateSpec(&rc)
+		err := rc.validateSpec()
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("error parsing regexp"))
 	})
@@ -66,7 +66,7 @@ var _ = Describe("SyncConfig utils", func() {
 		}}
 		rc := ReconciliationContext{cfg: cfg}
 
-		err := syncConfigReconciler.validateSpec(&rc)
+		err := rc.validateSpec()
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("error parsing regexp"))
 	})
@@ -79,9 +79,30 @@ var _ = Describe("SyncConfig utils", func() {
 		}}
 		rc := ReconciliationContext{cfg: cfg}
 
-		err := syncConfigReconciler.validateSpec(&rc)
+		err := rc.validateSpec()
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("labelSelector is required"))
+	})
+
+	It("should not include namespace name that shares the same substring with another", func() {
+		ns1 := "default"
+		ns2 := "substring-with-default"
+
+		cfg := &v1alpha1.SyncConfig{Spec: v1alpha1.SyncConfigSpec{
+			NamespaceSelector: &v1alpha1.NamespaceSelector{
+				MatchNames: []string{ns1},
+			},
+			SyncItems: []unstructured.Unstructured{toUnstructured(&v1.ConfigMap{})},
+		}}
+
+		sourceNs := []v1.Namespace{namespaceFromString(ns1), namespaceFromString(ns2)}
+		rc := ReconciliationContext{cfg: cfg}
+		err := rc.validateSpec()
+		Expect(err).ToNot(HaveOccurred())
+
+		result := filterNamespaces(&rc, sourceNs)
+		Expect(result).To(ContainElement(namespaceFromString(ns1)))
+		Expect(result).ToNot(ContainElement(namespaceFromString(ns2)))
 	})
 
 })

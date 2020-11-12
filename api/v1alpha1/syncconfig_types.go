@@ -14,8 +14,8 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// SyncConfigSpec defines the desired state of SyncConfig
 type (
+	// SyncConfigSpec defines the desired state of SyncConfig
 	SyncConfigSpec struct {
 		// ForceRecreate defines if objects should be deleted and recreated if updates fails
 		ForceRecreate bool `json:"forceRecreate,omitempty"`
@@ -77,6 +77,10 @@ type (
 
 	// +kubebuilder:object:root=true
 	// +kubebuilder:subresource:status
+	// +kubebuilder:printcolumn:name="Synced",type=integer,JSONPath=`.status.synchronizedItemCount`
+	// +kubebuilder:printcolumn:name="Deleted",type=integer,JSONPath=`.status.deletedItemCount`
+	// +kubebuilder:printcolumn:name="Failed",type=integer,JSONPath=`.status.failedItemCount`
+	// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 	// SyncConfig is the Schema for the syncconfigs API
 	SyncConfig struct {

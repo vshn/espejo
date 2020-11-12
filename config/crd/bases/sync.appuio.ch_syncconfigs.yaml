@@ -8,6 +8,19 @@ metadata:
   creationTimestamp: null
   name: syncconfigs.sync.appuio.ch
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.synchronizedItemCount
+    name: Synced
+    type: integer
+  - JSONPath: .status.deletedItemCount
+    name: Deleted
+    type: integer
+  - JSONPath: .status.failedItemCount
+    name: Failed
+    type: integer
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   group: sync.appuio.ch
   names:
     kind: SyncConfig
@@ -34,6 +47,7 @@ spec:
         metadata:
           type: object
         spec:
+          description: SyncConfigSpec defines the desired state of SyncConfig
           properties:
             deleteItems:
               description: DeleteItems lists items to be deleted from targeted namespaces

@@ -1,10 +1,10 @@
 module github.com/vshn/espejo
 
-go 1.14
+go 1.15
 
 require (
 	github.com/go-logr/logr v0.1.0
-	github.com/knadh/koanf v0.13.0
+	github.com/knadh/koanf v0.14.0
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.3
 	github.com/spf13/pflag v1.0.5

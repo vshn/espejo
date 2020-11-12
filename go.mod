@@ -1,6 +1,6 @@
 module github.com/vshn/espejo
 
-go 1.14
+go 1.15
 
 require (
 	github.com/go-logr/logr v0.1.0

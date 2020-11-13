@@ -1,8 +1,3 @@
-/*
-Licensed under the Apache License, Version 2.0 (the "License");
-http://www.apache.org/licenses/LICENSE-2.0
-*/
-
 package controllers
 
 import (
@@ -114,10 +109,10 @@ var _ = Describe("SyncConfig controller", func() {
 		Expect(result).ToNot(BeNil())
 
 		By("verify that resource exist")
-		syncResult := &v1.ConfigMap{}
-		key := types.NamespacedName{Namespace: ns, Name: cm.Name}
-		Expect(k8sClient.Get(context.Background(), key, syncResult)).ToNot(HaveOccurred())
-		Expect(syncResult.Data["PROJECT_NAME"]).To(BeEquivalentTo(ns))
+		cmResult := &v1.ConfigMap{}
+		cmKey := types.NamespacedName{Namespace: ns, Name: cm.Name}
+		Expect(k8sClient.Get(context.Background(), cmKey, cmResult)).ToNot(HaveOccurred())
+		Expect(cmResult.Data["PROJECT_NAME"]).To(BeEquivalentTo(ns))
 
 		newSC := &SyncConfig{ObjectMeta: toObjectMeta(sc.Name, sc.Namespace)}
 		err = k8sClient.Get(context.Background(), toObjectKey(newSC), newSC)
@@ -233,12 +228,12 @@ var _ = Describe("SyncConfig controller", func() {
 	})
 })
 
-func toUnstructured(configMap *v1.ConfigMap) unstructured.Unstructured {
-	obj := unstructured.Unstructured{}
-	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(configMap)
+func toUnstructured(obj interface{}) unstructured.Unstructured {
+	converted := unstructured.Unstructured{}
+	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	Expect(err).ToNot(HaveOccurred())
-	obj.SetUnstructuredContent(m)
-	return obj
+	converted.SetUnstructuredContent(m)
+	return converted
 }
 
 func toObjectKey(config *SyncConfig) types.NamespacedName {

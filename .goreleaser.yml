@@ -26,6 +26,9 @@ dockers:
   - "docker.io/vshn/espejo:latest"
   - "docker.io/vshn/espejo:v{{ .Version }}"
   - "docker.io/vshn/espejo:v{{ .Major }}"
+  - "quay.io/vshn/espejo:latest"
+  - "quay.io/vshn/espejo:v{{ .Version }}"
+  - "quay.io/vshn/espejo:v{{ .Major }}"
 
 changelog:
   sort: asc

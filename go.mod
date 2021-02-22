@@ -3,7 +3,7 @@ module github.com/vshn/espejo
 go 1.15
 
 require (
-	github.com/go-logr/logr v0.1.0
+	github.com/go-logr/logr v0.4.0
 	github.com/knadh/koanf v0.15.0
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.3

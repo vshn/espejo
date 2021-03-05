@@ -1,5 +1,3 @@
-dist/
-bin/
-.git/
-.idea/
-config/
+.*
+*
+!espejo

@@ -1,13 +1,15 @@
-name: Lint
+name: Test
 
 on:
-  pull_request: {}
   push:
+    branches:
+    - master
+  pull_request:
     branches:
     - master
 
 jobs:
-  lint:
+  test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -22,5 +24,12 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
-    - name: Run linters
-      run: make lint
+    - name: Run tests
+      run: make integration-test
+    - name: Upload code coverage report to Code Climate
+      uses: paambaati/codeclimate-action@v2.7.5
+      env:
+        CC_TEST_REPORTER_ID: 0215663c97fb7fa30fe9dc409ea016f7219323d0cd9a882a6afe7ead0035d366
+      with:
+        coverageLocations: cover.out:gocov
+        prefix: github.com/${{ github.repository }}

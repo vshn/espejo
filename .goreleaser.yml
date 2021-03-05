@@ -23,25 +23,22 @@ snapshot:
 
 dockers:
 - image_templates:
-  - "docker.io/vshn/espejo:latest"
   - "docker.io/vshn/espejo:v{{ .Version }}"
-  - "docker.io/vshn/espejo:v{{ .Major }}"
-  - "quay.io/vshn/espejo:latest"
   - "quay.io/vshn/espejo:v{{ .Version }}"
-  - "quay.io/vshn/espejo:v{{ .Major }}"
 
-changelog:
-  sort: asc
-  filters:
-    exclude:
-    - '^Docs:'
-    - '^Test:'
-    - '^Refactor:'
-    - '^Merge pull request'
+  # For prereleases, updating `latest` and the floating tags of the major
+  # version does not make sense. Only the image for the exact version should
+  # be pushed.
+  - "{{ if not .Prerelease }}docker.io/vshn/espejo:v{{ .Major }}{{ end }}"
+  - "{{ if not .Prerelease }}quay.io/vshn/espejo:v{{ .Major }}{{ end }}"
+
+  - "{{ if not .Prerelease }}docker.io/vshn/espejo:latest{{ end }}"
+  - "{{ if not .Prerelease }}quay.io/vshn/espejo:latest{{ end }}"
 
 release:
+  prerelease: auto
   github:
     owner: vshn
     name: espejo
   extra_files:
-  - glob: ./espejo-crd.yaml
+  - glob: ./espejo-crd*.yaml

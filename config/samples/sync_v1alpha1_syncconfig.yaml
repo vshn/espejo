@@ -3,5 +3,13 @@ kind: SyncConfig
 metadata:
   name: syncconfig-sample
 spec:
-  # Add fields here
-  foo: bar
+  namespaceSelector:
+    matchNames:
+    - default
+  syncItems:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: espejo-test-data
+    data:
+      NAMESPACE: ${PROJECT_NAME}

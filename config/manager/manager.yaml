@@ -1,17 +1,8 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    control-plane: controller-manager
-  name: system
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller-manager
+  name: operator
   namespace: system
-  labels:
-    control-plane: controller-manager
 spec:
   selector:
     matchLabels:
@@ -22,13 +13,13 @@ spec:
       labels:
         control-plane: controller-manager
     spec:
+      securityContext:
+        runAsUser: 65532
       containers:
-      - command:
-        - /bin/espejo
+      - name: operator
+        image: quay.io/vshn/k8up:latest
         args:
         - --enable-leader-election
-        image: controller:latest
-        name: manager
         resources:
           limits:
             cpu: 100m

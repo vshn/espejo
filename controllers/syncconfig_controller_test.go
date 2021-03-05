@@ -2,9 +2,11 @@ package controllers
 
 import (
 	"context"
+	"path/filepath"
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	. "github.com/vshn/espejo/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -12,16 +14,15 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"testing"
+
+	. "github.com/vshn/espejo/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -48,7 +49,7 @@ var _ = BeforeSuite(func(done Done) {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{filepath.Join("..", "config", "crd", "apiextensions.k8s.io", "v1", "base")},
 	}
 
 	var err error
@@ -102,7 +103,7 @@ var _ = Describe("SyncConfig controller", func() {
 		Expect(k8sClient.Create(context.Background(), sc)).ToNot(HaveOccurred())
 
 		By("reconciling sync config")
-		result, err := syncConfigReconciler.Reconcile(ctrl.Request{
+		result, err := syncConfigReconciler.Reconcile(context.TODO(), ctrl.Request{
 			NamespacedName: toObjectKey(sc),
 		})
 		Expect(err).ToNot(HaveOccurred())
@@ -146,7 +147,7 @@ var _ = Describe("SyncConfig controller", func() {
 		Expect(k8sClient.Create(context.Background(), sc)).ToNot(HaveOccurred())
 
 		By("reconciling sync config")
-		result, err := syncConfigReconciler.Reconcile(ctrl.Request{
+		result, err := syncConfigReconciler.Reconcile(context.TODO(), ctrl.Request{
 			NamespacedName: toObjectKey(sc),
 		})
 		Expect(err).ToNot(HaveOccurred())
@@ -177,7 +178,7 @@ var _ = Describe("SyncConfig controller", func() {
 		Expect(k8sClient.Create(context.Background(), sc)).ToNot(HaveOccurred())
 
 		By("mapping namespace into reconcile object")
-		result := syncConfigReconciler.Map(handler.MapObject{Meta: sourceNs.GetObjectMeta()})
+		result := syncConfigReconciler.Map(sourceNs)
 		Expect(result).ToNot(BeEmpty())
 		Expect(result).To(ContainElement(reconcile.Request{NamespacedName: types.NamespacedName{Name: sc.Name, Namespace: sc.Namespace}}))
 	})
@@ -195,7 +196,7 @@ var _ = Describe("SyncConfig controller", func() {
 		Expect(k8sClient.Create(context.Background(), sc)).ToNot(HaveOccurred())
 
 		By("mapping namespace into reconcile object")
-		result := syncConfigReconciler.Map(handler.MapObject{Meta: sourceNs.GetObjectMeta()})
+		result := syncConfigReconciler.Map(sourceNs)
 		Expect(result).To(HaveLen(1))
 		Expect(result).To(ContainElement(reconcile.Request{NamespacedName: types.NamespacedName{Name: sc.Name, Namespace: sc.Namespace}}))
 		syncConfigReconciler.WatchNamespace = ""
@@ -214,7 +215,7 @@ var _ = Describe("SyncConfig controller", func() {
 		Expect(k8sClient.Create(context.Background(), sc)).ToNot(HaveOccurred())
 
 		By("reconciling sync config")
-		result, err := syncConfigReconciler.Reconcile(ctrl.Request{
+		result, err := syncConfigReconciler.Reconcile(context.TODO(), ctrl.Request{
 			NamespacedName: toObjectKey(sc),
 		})
 		Expect(result.Requeue).To(BeFalse())

@@ -56,22 +56,22 @@ func (r *SyncConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&syncv1alpha1.SyncConfig{}).
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
-		Watches(&source.Kind{Type: &corev1.Namespace{}}, &handler.EnqueueRequestsFromMapFunc{ToRequests: r}).
+		Watches(&source.Kind{Type: &corev1.Namespace{}}, handler.EnqueueRequestsFromMapFunc(r.Map)).
 		Complete(r)
 }
 
 // Map transforms the watched objects into a list of SyncConfig to enqueue for later reconciliation.
-func (r *SyncConfigReconciler) Map(object handler.MapObject) (reqs []reconcile.Request) {
+func (r *SyncConfigReconciler) Map(object client.Object) (reqs []reconcile.Request) {
 	configList := &syncv1alpha1.SyncConfigList{}
 	ctx := context.Background()
 
 	ns := &corev1.Namespace{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: object.Meta.GetName()}, ns)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: object.GetName()}, ns)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			r.Log.Info("Namespace does not exist, ignoring reconcile.", "namespace", object.Meta.GetName())
+			r.Log.Info("Namespace does not exist, ignoring reconcile.", "namespace", object.GetName())
 		} else {
-			r.Log.Info("Could not get namespace status.", "namespace", object.Meta.GetName(), "error", err.Error())
+			r.Log.Info("Could not get namespace status.", "namespace", object.GetName(), "error", err.Error())
 		}
 		return
 	}
@@ -80,7 +80,7 @@ func (r *SyncConfigReconciler) Map(object handler.MapObject) (reqs []reconcile.R
 		return
 	}
 
-	r.Log.Info("Reconciling from Namespace event", "namespace", object.Meta.GetName())
+	r.Log.Info("Reconciling from Namespace event", "namespace", object.GetName())
 	err = r.Client.List(ctx, configList, &client.ListOptions{Namespace: r.WatchNamespace})
 	if err != nil {
 		r.Log.Error(err, "Could not get list of SyncConfig")
@@ -97,9 +97,9 @@ func (r *SyncConfigReconciler) Map(object handler.MapObject) (reqs []reconcile.R
 
 // +kubebuilder:rbac:groups=sync.appuio.ch,resources=syncconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=sync.appuio.ch,resources=syncconfigs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 
-func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, returnErr error) {
-	ctx := context.Background()
+func (r *SyncConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, returnErr error) {
 	syncConfig := &syncv1alpha1.SyncConfig{}
 
 	err := r.Client.Get(ctx, req.NamespacedName, syncConfig)

@@ -1,162 +1,161 @@
-# Current Operator version
-VERSION ?= 0.0.1
-# Default bundle image tag
-BUNDLE_IMG ?= controller-bundle:$(VERSION)
-# Options for 'bundle-build'
-ifneq ($(origin CHANNELS), undefined)
-BUNDLE_CHANNELS := --channels=$(CHANNELS)
-endif
-ifneq ($(origin DEFAULT_CHANNEL), undefined)
-BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
-endif
-BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
-
-# Image URL to use all building/pushing image targets
-IMG ?= controller:latest
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true"
-
-TESTBIN_DIR ?= ./testbin/bin
-CRD_FILE ?= espejo-crd.yaml
-
-KIND_BIN ?= $(TESTBIN_DIR)/kind
-KIND_VERSION ?= 0.9.0
-KIND_KUBECONFIG ?= ./testbin/kind-kubeconfig
-
-# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
-ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
-else
-GOBIN=$(shell go env GOBIN)
-endif
-
 # Set Shell to bash, otherwise some targets fail with dash/zsh etc.
 SHELL := /bin/bash
 
-all: build
+# Disable built-in rules
+MAKEFLAGS += --no-builtin-rules
+MAKEFLAGS += --no-builtin-variables
+.SUFFIXES:
+.SECONDARY:
+
+PROJECT_ROOT_DIR = .
+include Makefile.vars.mk
+
+e2e_make := $(MAKE) -C e2e
+go_build ?= go build -o $(BIN_FILENAME) main.go
 
 # Run tests (see https://sdk.operatorframework.io/docs/building-operators/golang/references/envtest-setup)
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 
-$(TESTBIN_DIR):
-	mkdir -p $(TESTBIN_DIR)
+all: build ## Invokes the build target
 
-integration_test: export ENVTEST_K8S_VERSION = 1.19.0
-integration_test: generate fmt vet manifests $(TESTBIN_DIR)
-	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/master/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test -v ./... -coverprofile cover.out
+.PHONY: test
+test: ## Run tests
+	go test ./... -coverprofile cover.out
 
-.PHONY: dist
-dist: generate fmt vet
-	goreleaser release --snapshot --rm-dist --skip-sign
+# See https://storage.googleapis.com/kubebuilder-tools/ for list of supported K8s versions
+#
+# A note on 1.20.2:
+# 1.20.2 is not (yet) supported, because starting the Kubernetes API controller with
+# `--insecure-port` and `--insecure-bind-address` flags is now deprecated,
+# but envtest was not updated accordingly.
+#integration-test: export ENVTEST_K8S_VERSION = 1.20.2
+integration-test: export ENVTEST_K8S_VERSION = 1.19.2
+integration-test: export KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT = $(INTEGRATION_TEST_DEBUG_OUTPUT)
+integration-test: generate $(testbin_created) ## Run integration tests with envtest
+	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || \
+		curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/master/hack/setup-envtest.sh
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; \
+		fetch_envtest_tools $(ENVTEST_ASSETS_DIR); \
+		setup_envtest_env $(ENVTEST_ASSETS_DIR); \
+		go test -tags=integration ./... -coverprofile cover.out
 
 .PHONY: build
-# Build manager binary
-build: generate fmt vet
-	go build -o bin/espejo main.go
+build: generate fmt vet $(BIN_FILENAME) ## Build manager binary
 
-# Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet manifests
+.PHONY: run
+run: export BACKUP_ENABLE_LEADER_ELECTION = $(ENABLE_LEADER_ELECTION)
+run: fmt vet ## Run against the configured Kubernetes cluster in ~/.kube/config
 	go run ./main.go
 
-# Install CRDs into a cluster
-install: manifests kustomize
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+.PHONY: install
+install: generate ## Install CRDs into a cluster
+	$(KUSTOMIZE) build $(CRD_ROOT_DIR)/$(CRD_SPEC_VERSION) | kubectl apply $(KIND_KUBECTL_ARGS) -f -
 
-# Uninstall CRDs from a cluster
-uninstall: manifests kustomize
-	$(KUSTOMIZE) build config/crd | kubectl delete -f -
+.PHONY: uninstall
+uninstall: generate ## Uninstall CRDs from a cluster
+	$(KUSTOMIZE) build $(CRD_ROOT_DIR)/$(CRD_SPEC_VERSION) | kubectl delete -f -
 
-# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests kustomize
+.PHONY: deploy
+deploy: generate ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
-# Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+.PHONY: generate
+generate: ## Generate manifests e.g. CRD, RBAC etc.
+	@CRD_ROOT_DIR="$(CRD_ROOT_DIR)" CRD_DOCS_REF_PATH="$(CRD_DOCS_REF_PATH)" go generate -tags=generate generate.go
+	@rm config/*.yaml
 
-# Generate CRD to file
-crd: manifests kustomize
-	$(KUSTOMIZE) build config/crd > $(CRD_FILE)
+.PHONY: crd
+crd: generate ## Generate CRD to file
+	$(KUSTOMIZE) build $(CRD_ROOT_DIR)/v1 > $(CRD_FILE)
+	$(KUSTOMIZE) build $(CRD_ROOT_DIR)/v1beta1 > $(CRD_FILE_LEGACY)
 
-# Run go fmt against code
-fmt:
+.PHONY: fmt
+fmt: ## Run go fmt against code
 	go fmt ./...
 
-# Run go vet against code
-vet:
+.PHONY: vet
+vet: ## Run go vet against code
 	go vet ./...
 
-lint: fmt vet
+.PHONY: lint
+lint: generate fmt vet ## Invokes the generate, fmt and vet targets
 	@echo 'Check for uncommitted changes ...'
 	git diff --exit-code
 
-# Generate code
-generate: controller-gen
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+.PHONY: docker-build
+docker-build: export GOOS = linux
+docker-build: $(BIN_FILENAME) ## Build the docker image
+	docker build . -t $(DOCKER_IMG) -t $(QUAY_IMG) -t $(E2E_IMG)
 
-# find or download controller-gen
-# download controller-gen if necessary
-controller-gen:
-ifeq (, $(shell which controller-gen))
-	@{ \
-	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0 ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
-	}
-CONTROLLER_GEN=$(GOBIN)/controller-gen
-else
-CONTROLLER_GEN=$(shell which controller-gen)
-endif
-
-kustomize:
-ifeq (, $(shell which kustomize))
-	@{ \
-	set -e ;\
-	KUSTOMIZE_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$KUSTOMIZE_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/kustomize/kustomize/v3@v3.5.4 ;\
-	rm -rf $$KUSTOMIZE_GEN_TMP_DIR ;\
-	}
-KUSTOMIZE=$(GOBIN)/kustomize
-else
-KUSTOMIZE=$(shell which kustomize)
-endif
-
-# Generate bundle manifests and metadata, then validate generated files.
-.PHONY: bundle
-bundle: manifests
-	operator-sdk generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	operator-sdk bundle validate ./bundle
-
-# Export kubeconfig for make's child process but not for user
-e2e_test: export KUBECONFIG = $(KIND_KUBECONFIG)
-e2e_test: setup_e2e_test build
-	@find e2e-test -type f -name *_test.sh | xargs -I % sh -c "echo --- TEST % && bash %"
-
-setup_e2e_test: export KUBECONFIG = $(KIND_KUBECONFIG)
-setup_e2e_test: $(KIND_BIN) manifests
-	@kubectl config use-context kind-espejo
-	@kubectl apply -k config/crd
-
-run_kind: setup_e2e_test
-	go run ./main.go
-
-$(KIND_BIN): export KUBECONFIG = $(KIND_KUBECONFIG)
-$(KIND_BIN): $(TESTBIN_DIR)
-	curl -Lo $(KIND_BIN) "https://kind.sigs.k8s.io/dl/v$(KIND_VERSION)/kind-$$(uname)-amd64"
-	chmod +x $(KIND_BIN)
-	$(KIND_BIN) create cluster --name espejo
-	kubectl cluster-info
+.PHONY: docker-push
+docker-push: ## Push the docker image
+	docker push $(DOCKER_IMG)
+	docker push $(QUAY_IMG)
 
 clean: export KUBECONFIG = $(KIND_KUBECONFIG)
-clean:
-	$(KIND_BIN) delete cluster --name espejo || true
-	rm -r testbin/ dist/ bin/ cover.out || true
+clean: e2e-clean kind-clean ## Cleans up the generated resources
+	rm -r testbin/ dist/ bin/ cover.out $(BIN_FILENAME) || true
+
+.PHONY: help
+help: ## Show this help
+	@grep -E -h '\s##\s' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+###
+### Assets
+###
+
+$(testbin_created):
+	mkdir -p $(TESTBIN_DIR)
+	# a marker file must be created, because the date of the
+	# directory may update when content in it is created/updated,
+	# which would cause a rebuild / re-initialization of dependants
+	@touch $(testbin_created)
+
+# Build the binary without running generators
+.PHONY: $(BIN_FILENAME)
+$(BIN_FILENAME): export CGO_ENABLED = 0
+$(BIN_FILENAME):
+	$(go_build)
+
+###
+### KIND
+###
+
+.PHONY: kind-setup
+kind-setup: ## Creates a kind instance if one does not exist yet.
+	@$(e2e_make) kind-setup
+
+.PHONY: kind-clean
+kind-clean: ## Removes the kind instance if it exists.
+	@$(e2e_make) kind-clean
+
+.PHONY: kind-run
+kind-run: export KUBECONFIG = $(KIND_KUBECONFIG)
+kind-run: kind-setup install run ## Runs the operator on the local host but configured for the kind cluster
+
+kind-e2e-image: docker-build
+	$(e2e_make) kind-e2e-image
+
+###
+### E2E Test
+###
+
+.PHONY: e2e-test
+e2e-test: export KUBECONFIG = $(KIND_KUBECONFIG)
+e2e-test: e2e-setup docker-build install ## Run the e2e tests
+	@$(e2e_make) test
+
+.PHONY: e2e-setup
+e2e-setup: export KUBECONFIG = $(KIND_KUBECONFIG)
+e2e-setup: ## Run the e2e setup
+	@$(e2e_make) setup
+
+.PHONY: e2e-clean-setup
+e2e-clean-setup: export KUBECONFIG = $(KIND_KUBECONFIG)
+e2e-clean-setup: ## Clean the e2e setup (e.g. to rerun the e2e-setup)
+	@$(e2e_make) clean-setup
+
+.PHONY: e2e-clean
+e2e-clean: ## Remove all e2e-related resources (incl. all e2e Docker images)
+	@$(e2e_make) clean

@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -123,7 +124,6 @@ func (ts *SyncConfigControllerTestSuite) Test_GivenInvalidConfig_WhenReconcile_T
 	ts.Assert().False(result.Requeue)
 
 	ts.FetchResource(ts.MapToNamespacedName(sc), sc)
-	conditions := mapConditionsToType(sc.Status.Conditions)
-	_, ok := conditions[SyncConfigInvalid]
-	ts.Assert().True(ok)
+	condition := meta.FindStatusCondition(sc.Status.Conditions, ConditionInvalid.String())
+	ts.Assert().NotNil(condition)
 }

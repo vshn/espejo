@@ -6,9 +6,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 type (
 	// SyncConfigSpec defines the desired state of SyncConfig
 	SyncConfigSpec struct {
@@ -51,7 +48,7 @@ type (
 	// SyncConfigStatus defines the observed state of SyncConfig
 	SyncConfigStatus struct {
 		// Conditions contain the states of the SyncConfig. A SyncConfig is considered Ready when at least one item has been synced.
-		Conditions []SyncConfigCondition `json:"conditions,omitempty" patchStrategy:"merge"`
+		Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge"`
 		// SynchronizedItemCount holds the accumulated number of created or updated objects in the targeted namespaces.
 		SynchronizedItemCount int64 `json:"synchronizedItemCount"`
 		// DeletedItemCount holds the accumulated number of deleted objects from targeted namespaces. Inexisting items do not get counted.
@@ -62,14 +59,14 @@ type (
 
 	// SyncConfigCondition describes a status condition of a SyncConfig
 	SyncConfigCondition struct {
-		Type               SyncConfigConditionType `json:"type"`
-		Status             v1.ConditionStatus      `json:"status"`
-		LastTransitionTime metav1.Time             `json:"lastTransitionTime,omitempty"`
-		Reason             string                  `json:"reason,omitempty"`
-		Message            string                  `json:"message,omitempty"`
+		Type               ConditionType      `json:"type"`
+		Status             v1.ConditionStatus `json:"status"`
+		LastTransitionTime metav1.Time        `json:"lastTransitionTime,omitempty"`
+		Reason             string             `json:"reason,omitempty"`
+		Message            string             `json:"message,omitempty"`
 	}
-	// SyncConfigConditionType identifies the type of a condition. The type is unique in the Status field.
-	SyncConfigConditionType string
+	// ConditionType identifies the type of a condition. The type is unique in the Status field.
+	ConditionType string
 
 	// +kubebuilder:object:root=true
 	// +kubebuilder:subresource:status
@@ -96,28 +93,26 @@ type (
 		Items           []SyncConfig `json:"items"`
 		Prune           bool         `json:"prune,omitempty"`
 	}
-
-	SyncConfigConditionMap map[SyncConfigConditionType]SyncConfigCondition
 )
 
 const (
-	// SyncConfigReady tracks if the SyncConfig has been successfully reconciled.
-	SyncConfigReady SyncConfigConditionType = "Ready"
-	// SyncConfigErrored is given when no objects could be synced or deleted and the failed object count is > 0 or
+	// ConditionConfigReady tracks if the SyncConfig has been successfully reconciled.
+	ConditionConfigReady ConditionType = "Ready"
+	// ConditionErrored is given when no objects could be synced or deleted and the failed object count is > 0 or
 	// any other reconciliation error.
-	SyncConfigErrored SyncConfigConditionType = "Errored"
-	// SyncConfigInvalid is given when the the SyncConfig Spec contains invalid properties. SyncConfigs will not be
+	ConditionErrored ConditionType = "Errored"
+	// ConditionInvalid is given when the the SyncConfig Spec contains invalid properties. SyncConfigs will not be
 	// reconciled.
-	SyncConfigInvalid SyncConfigConditionType = "Invalid"
+	ConditionInvalid ConditionType = "Invalid"
 
 	// SyncReasonFailed is given when the sync generally failed.
-	SyncReasonFailed          = "SynchronizationFailed"
+	SyncReasonFailed = "SynchronizationFailed"
 	// SyncReasonSucceeded is given when the sync succeeded without errors.
-	SyncReasonSucceeded       = "SynchronizationSucceeded"
+	SyncReasonSucceeded = "SynchronizationSucceeded"
 	// SyncReasonFailedWithError is given when the sync failed with a particular error.
 	SyncReasonFailedWithError = "SynchronizationFailedWithError"
 	// SyncReasonConfigInvalid is given if the SyncConfig contains invalid spec.
-	SyncReasonConfigInvalid   = "InvalidSyncConfigSpec"
+	SyncReasonConfigInvalid = "InvalidSyncConfigSpec"
 )
 
 func init() {
@@ -133,4 +128,9 @@ func (in *DeleteMeta) ToDeleteObj(namespace string) *unstructured.Unstructured {
 	deleteObj.SetNamespace(namespace)
 
 	return deleteObj
+}
+
+// String returns string(condition).
+func (in ConditionType) String() string {
+	return string(in)
 }

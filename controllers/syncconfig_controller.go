@@ -1,8 +1,3 @@
-/*
-Licensed under the Apache License, Version 2.0 (the "License");
-http://www.apache.org/licenses/LICENSE-2.0
-*/
-
 package controllers
 
 import (
@@ -43,7 +38,6 @@ type (
 	ReconciliationContext struct {
 		ctx              context.Context
 		cfg              *syncv1alpha1.SyncConfig
-		conditions       map[syncv1alpha1.SyncConfigConditionType]syncv1alpha1.SyncConfigCondition
 		matchNamesRegex  []*regexp.Regexp
 		ignoreNamesRegex []*regexp.Regexp
 		nsSelector       labels.Selector
@@ -116,9 +110,8 @@ func (r *SyncConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	rc := &ReconciliationContext{
-		ctx:        ctx,
-		cfg:        syncConfig,
-		conditions: make(map[syncv1alpha1.SyncConfigConditionType]syncv1alpha1.SyncConfigCondition),
+		ctx: ctx,
+		cfg: syncConfig,
 	}
 	r.Log.Info("Reconciling", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
 	err = rc.validateSpec()
@@ -127,7 +120,7 @@ func (r *SyncConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		rc.SetStatusCondition(CreateStatusConditionReady(false))
 		return ctrl.Result{Requeue: false}, r.updateStatus(rc)
 	}
-	rc.SetStatusIfExisting(syncv1alpha1.SyncConfigInvalid, corev1.ConditionFalse)
+	rc.SetStatusIfExisting(syncv1alpha1.ConditionInvalid, metav1.ConditionFalse)
 
 	namespaces, reconcileErr := r.getNamespaces(rc)
 	if reconcileErr != nil {

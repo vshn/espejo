@@ -110,9 +110,13 @@ const (
 	// reconciled.
 	SyncConfigInvalid SyncConfigConditionType = "Invalid"
 
+	// SyncReasonFailed is given when the sync generally failed.
 	SyncReasonFailed          = "SynchronizationFailed"
+	// SyncReasonSucceeded is given when the sync succeeded without errors.
 	SyncReasonSucceeded       = "SynchronizationSucceeded"
+	// SyncReasonFailedWithError is given when the sync failed with a particular error.
 	SyncReasonFailedWithError = "SynchronizationFailedWithError"
+	// SyncReasonConfigInvalid is given if the SyncConfig contains invalid spec.
 	SyncReasonConfigInvalid   = "InvalidSyncConfigSpec"
 )
 

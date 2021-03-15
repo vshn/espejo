@@ -53,6 +53,7 @@ type (
 	}
 )
 
+// SetupWithManager configures this reconciler with the given manager
 func (r *SyncConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&syncv1alpha1.SyncConfig{}).
@@ -100,6 +101,7 @@ func (r *SyncConfigReconciler) Map(object client.Object) (reqs []reconcile.Reque
 // +kubebuilder:rbac:groups=sync.appuio.ch,resources=syncconfigs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 
+// Reconcile processes the given SyncConfig.
 func (r *SyncConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, returnErr error) {
 	syncConfig := &syncv1alpha1.SyncConfig{}
 

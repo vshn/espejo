@@ -79,14 +79,17 @@ func CreateStatusConditionInvalid(err error) SyncConfigCondition {
 	}
 }
 
+// IncrementSyncCount increments the sync count by 1
 func (rc *ReconciliationContext) IncrementSyncCount() {
 	rc.syncCount++
 }
 
+// IncrementDeleteCount increments the delete count by 1
 func (rc *ReconciliationContext) IncrementDeleteCount() {
 	rc.deleteCount++
 }
 
+// IncrementFailCount increments the fail count by 1
 func (rc *ReconciliationContext) IncrementFailCount() {
 	rc.failCount++
 }

@@ -1,7 +1,7 @@
 apiVersion: sync.appuio.ch/v1alpha1
 kind: SyncConfig
 metadata:
-  name: espejo-e2e-test2
+  name: espejo-e2e-test
 spec:
   namespaceSelector:
     matchNames:

@@ -43,9 +43,8 @@ integration-test: generate $(testbin_created) ## Run integration tests with envt
 build: generate fmt vet $(BIN_FILENAME) ## Build manager binary
 
 .PHONY: run
-run: export BACKUP_ENABLE_LEADER_ELECTION = $(ENABLE_LEADER_ELECTION)
 run: fmt vet ## Run against the configured Kubernetes cluster in ~/.kube/config
-	go run ./main.go
+	go run ./main.go --enable-leader-election=$(ENABLE_LEADER_ELECTION)
 
 .PHONY: install
 install: generate ## Install CRDs into a cluster

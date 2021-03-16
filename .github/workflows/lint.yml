@@ -1,12 +1,8 @@
 name: Lint
 
 on:
+  pull_request: {}
   push:
-    branches:
-    - master
-    tags-ignore:
-    - "*"
-  pull_request:
     branches:
     - master
 

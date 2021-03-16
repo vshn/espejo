@@ -1,11 +1,9 @@
-/*
-Licensed under the Apache License, Version 2.0 (the "License");
-http://www.apache.org/licenses/LICENSE-2.0
-*/
-
 // Package v1alpha1 contains API Schema definitions for the sync v1alpha1 API group
 // +kubebuilder:object:generate=true
 // +groupName=sync.appuio.ch
+
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;create;update
+
 package v1alpha1
 
 import (

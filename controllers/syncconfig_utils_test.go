@@ -1,113 +1,145 @@
 package controllers
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"github.com/vshn/espejo/api/v1alpha1"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"regexp"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	syncv1alpha1 "github.com/vshn/espejo/api/v1alpha1"
 )
 
-var _ = Describe("SyncConfig utils", func() {
-	It("should include regular namespace name in selector", func() {
-		ns := "match-regular-namespace"
-
-		sourceNs := []v1.Namespace{namespaceFromString(ns)}
-		rc := ReconciliationContext{matchNamesRegex: []*regexp.Regexp{toRegex(ns)}}
-
-		result := filterNamespaces(&rc, sourceNs)
-		Expect(result).To(ConsistOf(sourceNs))
-	})
-
-	It("should include namespace that match a pattern", func() {
-		ns := "match-regex-namespace"
-
-		sourceNs := []v1.Namespace{namespaceFromString(ns)}
-
-		rc := ReconciliationContext{matchNamesRegex: []*regexp.Regexp{toRegex("match-.*")}}
-
-		result := filterNamespaces(&rc, sourceNs)
-		Expect(result).To(ConsistOf(sourceNs))
-	})
-
-	It("should exclude namespace that does not match a pattern", func() {
-		ns := "match-regex-namespace"
-
-		sourceNs := []v1.Namespace{namespaceFromString(ns)}
-
-		rc := ReconciliationContext{matchNamesRegex: []*regexp.Regexp{toRegex("match\\snamespaceWithSpace")}}
-
-		result := filterNamespaces(&rc, sourceNs)
-		Expect(result).To(BeEmpty())
-	})
-
-	It("should fail validation if invalid regex is specified in matchNames", func() {
-		cfg := &v1alpha1.SyncConfig{Spec: v1alpha1.SyncConfigSpec{
-			NamespaceSelector: &v1alpha1.NamespaceSelector{
-				MatchNames: []string{"["},
+func Test_ReconciliationContext_FilterNamespaces(t *testing.T) {
+	tests := map[string]struct {
+		givenNamespaces      []corev1.Namespace
+		givenMatchNamesRegex []*regexp.Regexp
+		expectedNamespaces   []corev1.Namespace
+	}{
+		"GivenRegularNameAsRegex_WhenFilter_ThenIncludeFullName": {
+			givenNamespaces:      []corev1.Namespace{namespaceFromString("match-regular-namespace")},
+			givenMatchNamesRegex: []*regexp.Regexp{toRegex(t, "match-regular-namespace")},
+			expectedNamespaces:   []corev1.Namespace{namespaceFromString("match-regular-namespace")},
+		},
+		"GivenNamePattern_WhenFilter_ThenIncludeFullName": {
+			givenNamespaces:      []corev1.Namespace{namespaceFromString("match-regex-namespace")},
+			givenMatchNamesRegex: []*regexp.Regexp{toRegex(t, "match-.*")},
+			expectedNamespaces:   []corev1.Namespace{namespaceFromString("match-regex-namespace")},
+		},
+		"GivenNonMatchingPattern_WhenFilter_ThenIgnore": {
+			givenNamespaces:      []corev1.Namespace{namespaceFromString("match-regex-namespace")},
+			givenMatchNamesRegex: []*regexp.Regexp{toRegex(t, "match\\snamespaceWithSpace")},
+			expectedNamespaces:   []corev1.Namespace{},
+		},
+		"GivenRegularNamespace_WhenFiltering_ThenReturnSameNamespace": {
+			givenMatchNamesRegex: []*regexp.Regexp{toRegex(t, "match-regular-namespace")},
+			givenNamespaces:      []corev1.Namespace{namespaceFromString("match-regular-namespace")},
+			expectedNamespaces:   []corev1.Namespace{namespaceFromString("match-regular-namespace")},
+		},
+		"GivenNamespaceThatSharesSameSubString_WhenFiltering_ThenIgnoreSimilarNamespace": {
+			givenMatchNamesRegex: []*regexp.Regexp{toRegex(t, "default")},
+			givenNamespaces: []corev1.Namespace{
+				namespaceFromString("default"),
+				namespaceFromString("substring-with-default"),
 			},
-			SyncItems: []unstructured.Unstructured{toUnstructured(&v1.ConfigMap{})},
-		}}
-		rc := ReconciliationContext{cfg: cfg}
+			expectedNamespaces: []corev1.Namespace{namespaceFromString("default")},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			rc := ReconciliationContext{matchNamesRegex: tt.givenMatchNamesRegex}
+			filtered := rc.filterNamespaces(tt.expectedNamespaces)
+			assert.Equal(t, tt.expectedNamespaces, filtered)
+		})
+	}
+}
 
-		err := rc.validateSpec()
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("error parsing regexp"))
-	})
+func Test_ReconciliationContext_validateSpec(t *testing.T) {
+	tests := map[string]struct {
+		expectErr          bool
+		containsErrMessage string
 
-	It("should fail validation if invalid regex is specified in ignoreNames", func() {
-		cfg := &v1alpha1.SyncConfig{Spec: v1alpha1.SyncConfigSpec{
-			NamespaceSelector: &v1alpha1.NamespaceSelector{
-				IgnoreNames: []string{"["},
-				MatchNames:  []string{".*"},
+		cfg              *syncv1alpha1.SyncConfig
+		matchNamesRegex  []*regexp.Regexp
+		ignoreNamesRegex []*regexp.Regexp
+		nsSelector       labels.Selector
+	}{
+		"GivenSpecWithInvalidMatchNamesSelector_WhenParsingRegex_ThenReturnRegexError": {
+			cfg: &syncv1alpha1.SyncConfig{
+				Spec: syncv1alpha1.SyncConfigSpec{
+					NamespaceSelector: &syncv1alpha1.NamespaceSelector{
+						MatchNames: []string{"["},
+					},
+					SyncItems: []syncv1alpha1.SyncItem{toSyncItem(t, &corev1.ConfigMap{})},
+				},
 			},
-			SyncItems: []unstructured.Unstructured{toUnstructured(&v1.ConfigMap{})},
-		}}
-		rc := ReconciliationContext{cfg: cfg}
-
-		err := rc.validateSpec()
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("error parsing regexp"))
-	})
-
-	It("should fail validation if no namespace selector is given", func() {
-		cfg := &v1alpha1.SyncConfig{Spec: v1alpha1.SyncConfigSpec{
-			NamespaceSelector: &v1alpha1.NamespaceSelector{
-				MatchNames: []string{},
+			containsErrMessage: "error parsing regexp",
+			expectErr:          true,
+		},
+		"GivenSpecWithInvalidIgnoreNamesSelector_WhenParsingRegex_ThenReturnRegexError": {
+			cfg: &syncv1alpha1.SyncConfig{
+				Spec: syncv1alpha1.SyncConfigSpec{
+					NamespaceSelector: &syncv1alpha1.NamespaceSelector{
+						IgnoreNames: []string{"["},
+						MatchNames:  []string{".*"},
+					},
+					SyncItems: []syncv1alpha1.SyncItem{toSyncItem(t, &corev1.ConfigMap{})},
+				},
 			},
-		}}
-		rc := ReconciliationContext{cfg: cfg}
-
-		err := rc.validateSpec()
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("labelSelector is required"))
-	})
-
-	It("should not include namespace name that shares the same substring with another", func() {
-		ns1 := "default"
-		ns2 := "substring-with-default"
-
-		cfg := &v1alpha1.SyncConfig{Spec: v1alpha1.SyncConfigSpec{
-			NamespaceSelector: &v1alpha1.NamespaceSelector{
-				MatchNames: []string{ns1},
+			containsErrMessage: "error parsing regexp",
+			expectErr:          true,
+		},
+		"GivenSpecWithNoNamespaceSelector_WhenValidating_ThenReturnSelectorError": {
+			cfg: &syncv1alpha1.SyncConfig{
+				Spec: syncv1alpha1.SyncConfigSpec{
+					NamespaceSelector: &syncv1alpha1.NamespaceSelector{
+						MatchNames: []string{},
+					},
+				},
 			},
-			SyncItems: []unstructured.Unstructured{toUnstructured(&v1.ConfigMap{})},
-		}}
+			containsErrMessage: "labelSelector is required",
+			expectErr:          true,
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			rc := &ReconciliationContext{
+				cfg: tt.cfg,
+			}
+			err := rc.validateSpec()
+			if tt.expectErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.containsErrMessage)
+				return
+			}
 
-		sourceNs := []v1.Namespace{namespaceFromString(ns1), namespaceFromString(ns2)}
-		rc := ReconciliationContext{cfg: cfg}
-		err := rc.validateSpec()
-		Expect(err).ToNot(HaveOccurred())
+		})
+	}
+}
 
-		result := filterNamespaces(&rc, sourceNs)
-		Expect(result).To(ContainElement(namespaceFromString(ns1)))
-		Expect(result).ToNot(ContainElement(namespaceFromString(ns2)))
-	})
-
-})
-
-func toRegex(pattern string) *regexp.Regexp {
-	rgx, _ := regexp.Compile(pattern)
+func toRegex(t *testing.T, pattern string) *regexp.Regexp {
+	rgx, err := regexp.Compile(pattern)
+	require.NoError(t, err)
 	return rgx
+}
+
+func toSyncItem(t *testing.T, obj *corev1.ConfigMap) syncv1alpha1.SyncItem {
+	converted := unstructured.Unstructured{}
+	o := obj.DeepCopy()
+	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(o)
+	require.NoError(t, err)
+	converted.SetUnstructuredContent(m)
+	return syncv1alpha1.SyncItem(converted)
+}
+
+func toObjectMeta(name, namespace string) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:      name,
+		Namespace: namespace,
+	}
 }

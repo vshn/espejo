@@ -1,25 +1,21 @@
-/*
-Licensed under the Apache License, Version 2.0 (the "License");
-http://www.apache.org/licenses/LICENSE-2.0
-*/
-
 package controllers
 
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,7 +38,6 @@ type (
 	ReconciliationContext struct {
 		ctx              context.Context
 		cfg              *syncv1alpha1.SyncConfig
-		conditions       map[syncv1alpha1.SyncConfigConditionType]syncv1alpha1.SyncConfigCondition
 		matchNamesRegex  []*regexp.Regexp
 		ignoreNamesRegex []*regexp.Regexp
 		nsSelector       labels.Selector
@@ -52,26 +47,27 @@ type (
 	}
 )
 
+// SetupWithManager configures this reconciler with the given manager
 func (r *SyncConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&syncv1alpha1.SyncConfig{}).
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
-		Watches(&source.Kind{Type: &corev1.Namespace{}}, &handler.EnqueueRequestsFromMapFunc{ToRequests: r}).
+		Watches(&source.Kind{Type: &corev1.Namespace{}}, handler.EnqueueRequestsFromMapFunc(r.Map)).
 		Complete(r)
 }
 
 // Map transforms the watched objects into a list of SyncConfig to enqueue for later reconciliation.
-func (r *SyncConfigReconciler) Map(object handler.MapObject) (reqs []reconcile.Request) {
+func (r *SyncConfigReconciler) Map(object client.Object) (reqs []reconcile.Request) {
 	configList := &syncv1alpha1.SyncConfigList{}
 	ctx := context.Background()
 
 	ns := &corev1.Namespace{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: object.Meta.GetName()}, ns)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: object.GetName()}, ns)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			r.Log.Info("Namespace does not exist, ignoring reconcile.", "namespace", object.Meta.GetName())
+			r.Log.Info("Namespace does not exist, ignoring reconcile.", "namespace", object.GetName())
 		} else {
-			r.Log.Info("Could not get namespace status.", "namespace", object.Meta.GetName(), "error", err.Error())
+			r.Log.Info("Could not get namespace status.", "namespace", object.GetName(), "error", err.Error())
 		}
 		return
 	}
@@ -80,7 +76,7 @@ func (r *SyncConfigReconciler) Map(object handler.MapObject) (reqs []reconcile.R
 		return
 	}
 
-	r.Log.Info("Reconciling from Namespace event", "namespace", object.Meta.GetName())
+	r.Log.Info("Reconciling from Namespace event", "namespace", object.GetName())
 	err = r.Client.List(ctx, configList, &client.ListOptions{Namespace: r.WatchNamespace})
 	if err != nil {
 		r.Log.Error(err, "Could not get list of SyncConfig")
@@ -97,9 +93,10 @@ func (r *SyncConfigReconciler) Map(object handler.MapObject) (reqs []reconcile.R
 
 // +kubebuilder:rbac:groups=sync.appuio.ch,resources=syncconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=sync.appuio.ch,resources=syncconfigs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 
-func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, returnErr error) {
-	ctx := context.Background()
+// Reconcile processes the given SyncConfig.
+func (r *SyncConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, returnErr error) {
 	syncConfig := &syncv1alpha1.SyncConfig{}
 
 	err := r.Client.Get(ctx, req.NamespacedName, syncConfig)
@@ -113,9 +110,8 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 	}
 
 	rc := &ReconciliationContext{
-		ctx:        ctx,
-		cfg:        syncConfig,
-		conditions: make(map[syncv1alpha1.SyncConfigConditionType]syncv1alpha1.SyncConfigCondition),
+		ctx: ctx,
+		cfg: syncConfig,
 	}
 	r.Log.Info("Reconciling", getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
 	err = rc.validateSpec()
@@ -124,7 +120,7 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 		rc.SetStatusCondition(CreateStatusConditionReady(false))
 		return ctrl.Result{Requeue: false}, r.updateStatus(rc)
 	}
-	rc.SetStatusIfExisting(syncv1alpha1.SyncConfigInvalid, corev1.ConditionFalse)
+	rc.SetStatusIfExisting(syncv1alpha1.ConditionInvalid, metav1.ConditionFalse)
 
 	namespaces, reconcileErr := r.getNamespaces(rc)
 	if reconcileErr != nil {
@@ -140,7 +136,7 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 	if rc.failCount > 0 {
 		r.Log.V(1).Info("Encountered errors", "err_count", rc.failCount)
 	}
-	if isReconcileFailed(rc) {
+	if rc.isReconcileFailed() {
 		rc.SetStatusCondition(CreateStatusConditionReady(false))
 		rc.SetStatusCondition(CreateStatusConditionErrored(fmt.Errorf("could not sync or delete any items")))
 	} else {
@@ -151,7 +147,8 @@ func (r *SyncConfigReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, 
 
 func (r *SyncConfigReconciler) syncItems(rc *ReconciliationContext, targetNamespace corev1.Namespace) {
 	for _, item := range rc.cfg.Spec.SyncItems {
-		unstructObj := item.DeepCopy()
+		cp := unstructured.Unstructured(*item.DeepCopy())
+		unstructObj := &cp
 		unstructObj.SetNamespace(targetNamespace.Name)
 
 		replaceProjectName(targetNamespace.Name, unstructObj.Object)
@@ -232,7 +229,7 @@ func (r *SyncConfigReconciler) getNamespaces(rc *ReconciliationContext) (namespa
 		return []corev1.Namespace{}, err
 	}
 
-	return filterNamespaces(rc, namespaceList.Items), nil
+	return rc.filterNamespaces(namespaceList.Items), nil
 }
 
 func (r *SyncConfigReconciler) recreateObject(rc *ReconciliationContext, obj *unstructured.Unstructured) error {

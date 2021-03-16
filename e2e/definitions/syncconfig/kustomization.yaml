@@ -1,0 +1,9 @@
+resources:
+- syncconfig.yaml
+
+namespace: espejo-system
+namePrefix: espejo-
+
+commonLabels:
+  app.kubernetes.io/name: e2e
+  app.kubernetes.io/managed-by: kustomize

@@ -38,6 +38,7 @@ var (
 )
 
 type (
+	// Configuration holds all the operator-wide configurable settings.
 	Configuration struct {
 		LeaderElection    bool   `koanf:"enable-leader-election"`
 		MetricsAddr       string `koanf:"metrics-addr"`

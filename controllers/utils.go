@@ -1,17 +1,15 @@
 package controllers
 
 import (
-	"errors"
 	"fmt"
-	"github.com/vshn/espejo/api/v1alpha1"
+	"strings"
+
 	"k8s.io/api/core/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"strings"
-)
 
-var log = ctrl.Log.WithName("utils")
+	"github.com/vshn/espejo/api/v1alpha1"
+)
 
 func getLoggingKeysAndValues(unstructuredObject *unstructured.Unstructured) []interface{} {
 	return []interface{}{
@@ -75,7 +73,7 @@ func transcendStructure(replacement string, v interface{}) interface{} {
 		}
 		return v
 	default:
-		log.Error(errors.New(fmt.Sprintf("unrecognized type: %s is %T", v, v)), "Cannot replace placeholders in structure")
+		panic(fmt.Errorf("cannot replace placeholders in structure: unrecognized type: %s is %T", v, v))
 	}
 	return v
 }

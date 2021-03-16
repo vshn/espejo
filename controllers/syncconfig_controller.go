@@ -147,7 +147,8 @@ func (r *SyncConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 func (r *SyncConfigReconciler) syncItems(rc *ReconciliationContext, targetNamespace corev1.Namespace) {
 	for _, item := range rc.cfg.Spec.SyncItems {
-		unstructObj := item.DeepCopy()
+		cp := unstructured.Unstructured(*item.DeepCopy())
+		unstructObj := &cp
 		unstructObj.SetNamespace(targetNamespace.Name)
 
 		replaceProjectName(targetNamespace.Name, unstructObj.Object)

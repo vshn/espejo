@@ -111,9 +111,10 @@ spec:
             syncItems:
               description: SyncItems lists items to be synced to targeted namespaces
               items:
+                description: SyncItem is an unstructured, "free-form" Kubernetes resource, complete with GVK, metadata and spec.
                 type: object
+                x-kubernetes-preserve-unknown-fields: true
               type: array
-              x-kubernetes-preserve-unknown-fields: true
           type: object
         status:
           description: SyncConfigStatus defines the observed state of SyncConfig

@@ -75,7 +75,7 @@ func Test_ReconciliationContext_validateSpec(t *testing.T) {
 					NamespaceSelector: &syncv1alpha1.NamespaceSelector{
 						MatchNames: []string{"["},
 					},
-					SyncItems: []unstructured.Unstructured{toUnstructured(t, &corev1.ConfigMap{})},
+					SyncItems: []syncv1alpha1.SyncItem{toSyncItem(t, &corev1.ConfigMap{})},
 				},
 			},
 			containsErrMessage: "error parsing regexp",
@@ -88,7 +88,7 @@ func Test_ReconciliationContext_validateSpec(t *testing.T) {
 						IgnoreNames: []string{"["},
 						MatchNames:  []string{".*"},
 					},
-					SyncItems: []unstructured.Unstructured{toUnstructured(t, &corev1.ConfigMap{})},
+					SyncItems: []syncv1alpha1.SyncItem{toSyncItem(t, &corev1.ConfigMap{})},
 				},
 			},
 			containsErrMessage: "error parsing regexp",
@@ -128,15 +128,13 @@ func toRegex(t *testing.T, pattern string) *regexp.Regexp {
 	return rgx
 }
 
-func toUnstructured(t *testing.T, obj *corev1.ConfigMap) unstructured.Unstructured {
+func toSyncItem(t *testing.T, obj *corev1.ConfigMap) syncv1alpha1.SyncItem {
 	converted := unstructured.Unstructured{}
 	o := obj.DeepCopy()
 	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(o)
 	require.NoError(t, err)
 	converted.SetUnstructuredContent(m)
-	//converted.SetAPIVersion("v1")
-	//converted.SetKind("ConfigMap")
-	return converted
+	return syncv1alpha1.SyncItem(converted)
 }
 
 func toObjectMeta(name, namespace string) metav1.ObjectMeta {

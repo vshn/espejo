@@ -8,7 +8,7 @@ DETIK_CLIENT_NAME="kubectl"
 DETIK_CLIENT_NAMESPACE="espejo-system"
 DEBUG_DETIK="true"
 
-@test "verify the deployment" {
+@test "Given Kustomize setup, When deploying Operator, Then expect Pod to be running" {
 	# Remove traces of previous deployments from other tests
 	kubectl delete namespace "$DETIK_CLIENT_NAMESPACE" --ignore-not-found
 	kubectl create namespace "$DETIK_CLIENT_NAMESPACE"

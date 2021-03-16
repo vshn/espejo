@@ -17,16 +17,16 @@ spec:
         runAsUser: 65532
       containers:
       - name: operator
-        image: quay.io/vshn/k8up:latest
+        image: quay.io/vshn/espejo:latest
         args:
         - --enable-leader-election
         resources:
           limits:
-            cpu: 100m
-            memory: 30Mi
+            cpu: 300m
+            memory: 100Mi
           requests:
-            cpu: 100m
-            memory: 20Mi
+            cpu: 20m
+            memory: 50Mi
         env:
         - name: WATCH_NAMESPACE
           valueFrom:

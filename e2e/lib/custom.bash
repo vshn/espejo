@@ -50,7 +50,7 @@ prepare() {
 
 apply() {
 	prepare "${@}"
-	kubectl apply -f "debug/${1}/main.yml"
+	kubectl apply -f "debug/${1}/main.yml" --validate=false
 }
 
 given_running_operator() {

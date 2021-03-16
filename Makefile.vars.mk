@@ -17,7 +17,7 @@ ENABLE_LEADER_ELECTION ?= false
 
 KIND_KUBECONFIG ?= $(TESTBIN_DIR)/kind-kubeconfig-$(KIND_NODE_VERSION)
 KIND_CLUSTER ?= espejo-$(KIND_NODE_VERSION)
-KIND_KUBECTL_ARGS ?= --validate=true
+KIND_KUBECTL_ARGS ?= --validate=false
 
 SHASUM ?= $(shell command -v sha1sum > /dev/null && echo "sha1sum" || echo "shasum -a1")
 E2E_TAG ?= e2e_$(shell $(SHASUM) $(BIN_FILENAME) | cut -b-8)

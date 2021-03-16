@@ -15,5 +15,5 @@ DEBUG_DETIK="true"
 	given_running_operator
 
 	apply definitions/syncconfig
-	try "at most 10 times every 1s to get backup named 'k8up-k8up-backup' and verify that '.status.started' is 'true'"
+	try "at most 10 times every 1s to get configmap named 'espejo-e2e-test-data' and verify that '.data.KEY' is 'espejo-system'"
 }

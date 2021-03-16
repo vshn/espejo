@@ -8,18 +8,19 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -140,7 +141,7 @@ func (r *SyncConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if rc.failCount > 0 {
 		r.Log.V(1).Info("Encountered errors", "err_count", rc.failCount)
 	}
-	if isReconcileFailed(rc) {
+	if rc.isReconcileFailed() {
 		rc.SetStatusCondition(CreateStatusConditionReady(false))
 		rc.SetStatusCondition(CreateStatusConditionErrored(fmt.Errorf("could not sync or delete any items")))
 	} else {
@@ -232,7 +233,7 @@ func (r *SyncConfigReconciler) getNamespaces(rc *ReconciliationContext) (namespa
 		return []corev1.Namespace{}, err
 	}
 
-	return filterNamespaces(rc, namespaceList.Items), nil
+	return rc.filterNamespaces(namespaceList.Items), nil
 }
 
 func (r *SyncConfigReconciler) recreateObject(rc *ReconciliationContext, obj *unstructured.Unstructured) error {

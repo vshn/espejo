@@ -1,8 +1,3 @@
-/*
-Licensed under the Apache License, Version 2.0 (the "License");
-http://www.apache.org/licenses/LICENSE-2.0
-*/
-
 package v1alpha1
 
 import (
@@ -22,6 +17,7 @@ type (
 		// NamespaceSelector defines which namespaces should be targeted
 		NamespaceSelector *NamespaceSelector `json:"namespaceSelector,omitempty"`
 		// SyncItems lists items to be synced to targeted namespaces
+		// +kubebuilder:pruning:PreserveUnknownFields
 		SyncItems []unstructured.Unstructured `json:"syncItems,omitempty"`
 		// DeleteItems lists items to be deleted from targeted namespaces
 		DeleteItems []DeleteMeta `json:"deleteItems,omitempty"`
@@ -125,11 +121,11 @@ func init() {
 }
 
 // ToDeleteObj creates a k8s Unstructured object based on a DeleteMeta obj
-func (d *DeleteMeta) ToDeleteObj(namespace string) *unstructured.Unstructured {
+func (in *DeleteMeta) ToDeleteObj(namespace string) *unstructured.Unstructured {
 	deleteObj := &unstructured.Unstructured{}
-	deleteObj.SetAPIVersion(d.APIVersion)
-	deleteObj.SetKind(d.Kind)
-	deleteObj.SetName(d.Name)
+	deleteObj.SetAPIVersion(in.APIVersion)
+	deleteObj.SetKind(in.Kind)
+	deleteObj.SetName(in.Name)
 	deleteObj.SetNamespace(namespace)
 
 	return deleteObj

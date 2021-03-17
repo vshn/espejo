@@ -20,6 +20,7 @@ type (
 
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:EmbeddedResource
+	// +kubebuilder:validation:XEmbeddedResource
 
 	// SyncItem is an unstructured, "free-form" Kubernetes resource, complete with GVK, metadata and spec.
 	SyncItem unstructured.Unstructured

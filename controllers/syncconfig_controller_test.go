@@ -10,6 +10,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -45,7 +46,7 @@ func (ts *SyncConfigControllerTestSuite) Test_GivenNewSyncConfig_WhenReconcile_T
 	sc := &SyncConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: ts.NS},
 		Spec: SyncConfigSpec{
-			SyncItems:         []SyncItem{toSyncItem(ts.T(), cm)},
+			SyncItems:         []unstructured.Unstructured{toUnstructured(ts.T(), cm)},
 			NamespaceSelector: &NamespaceSelector{MatchNames: []string{ts.NS}},
 		},
 	}

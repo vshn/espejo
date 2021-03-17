@@ -12,17 +12,15 @@ type (
 		ForceRecreate bool `json:"forceRecreate,omitempty"`
 		// NamespaceSelector defines which namespaces should be targeted
 		NamespaceSelector *NamespaceSelector `json:"namespaceSelector,omitempty"`
+
+		// +kubebuilder:pruning:PreserveUnknownFields
+		// +kubebuilder:validation:EmbeddedResource
+
 		// SyncItems lists items to be synced to targeted namespaces
-		SyncItems []SyncItem `json:"syncItems,omitempty"`
+		SyncItems []unstructured.Unstructured `json:"syncItems,omitempty"`
 		// DeleteItems lists items to be deleted from targeted namespaces
 		DeleteItems []DeleteMeta `json:"deleteItems,omitempty"`
 	}
-
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:EmbeddedResource
-
-	// SyncItem is an unstructured, "free-form" Kubernetes resource, complete with GVK, metadata and spec.
-	SyncItem unstructured.Unstructured
 
 	// DeleteMeta defines an object by name, kind and version
 	DeleteMeta struct {
@@ -129,14 +127,4 @@ func (in *DeleteMeta) ToDeleteObj(namespace string) *unstructured.Unstructured {
 // String returns string(condition).
 func (in ConditionType) String() string {
 	return string(in)
-}
-
-// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *SyncItem) DeepCopyInto(out *SyncItem) {
-	// controller-gen cannot handle the interface{} type of an aliased Unstructured, thus we write our own DeepCopyInto function.
-	if out != nil {
-		casted := unstructured.Unstructured(*in)
-		deepCopy := casted.DeepCopy()
-		out.Object = deepCopy.Object
-	}
 }

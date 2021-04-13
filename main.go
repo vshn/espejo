@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"go.uber.org/zap/zapcore"
 	"os"
 	"time"
+
+	"go.uber.org/zap/zapcore"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -16,6 +17,7 @@ import (
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/providers/posflag"
 	flag "github.com/spf13/pflag"
+
 	syncv1alpha1 "github.com/vshn/espejo/api/v1alpha1"
 	"github.com/vshn/espejo/controllers"
 	// +kubebuilder:scaffold:imports
@@ -75,15 +77,33 @@ func main() {
 		setupLog.Error(err, "could not parse interval")
 		os.Exit(1)
 	}
+
 	setupLog.V(1).Info("Configuration from flags", "config", config)
-	if err = (&controllers.SyncConfigReconciler{
-		Client:            mgr.GetClient(),
-		Log:               ctrl.Log.WithName("controllers").WithName("SyncConfig"),
-		Scheme:            mgr.GetScheme(),
-		ReconcileInterval: interval,
-		WatchNamespace:    getWatchNamespace(),
-	}).SetupWithManager(mgr); err != nil {
+
+	supplier := func() *controllers.SyncConfigReconciler {
+		return &controllers.SyncConfigReconciler{
+			Client: mgr.GetClient(),
+			Log:    ctrl.Log.WithName("controllers").WithName("Namespace"),
+			Scheme: mgr.GetScheme(),
+		}
+	}
+	mainScr := supplier()
+	mainScr.ReconcileInterval = interval
+	mainScr.WatchNamespace = getWatchNamespace()
+	mainScr.Log = ctrl.Log.WithName("controllers").WithName("SyncConfig")
+
+	if err = mainScr.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SyncConfig")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.NamespaceReconciler{
+		Client:                  mgr.GetClient(),
+		Log:                     ctrl.Log.WithName("controllers").WithName("Namespace"),
+		Scheme:                  mgr.GetScheme(),
+		NewSyncConfigReconciler: supplier,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Namespace")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

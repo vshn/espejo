@@ -7,10 +7,16 @@ import (
 	syncv1alpha1 "github.com/vshn/espejo/api/v1alpha1"
 )
 
+func (r *SyncConfigReconciler) shouldSkipStatusUpdate() bool {
+	return r.NamespaceScope != ""
+}
+
 func (r *SyncConfigReconciler) updateStatus(rc *ReconciliationContext) error {
+	if r.shouldSkipStatusUpdate() {
+		return nil
+	}
 	status := rc.cfg.Status
-	// Once we are on Kubernetes 0.19, we can use metav1.Conditions, but for now, we have to implement our helpers on
-	// our own.
+
 	status.SynchronizedItemCount = rc.syncCount
 	status.DeletedItemCount = rc.deleteCount
 	status.FailedItemCount = rc.failCount

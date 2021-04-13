@@ -24,6 +24,12 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - namespaces/status
+  verbs:
+  - get
+- apiGroups:
   - sync.appuio.ch
   resources:
   - syncconfigs

@@ -5,7 +5,10 @@ metadata:
 spec:
   namespaceSelector:
     matchNames:
-    - espejo-system
+    - espejo-.*
+    labelSelector:
+      matchLabels:
+        e2e: test
   syncItems:
   - apiVersion: v1
     kind: ConfigMap

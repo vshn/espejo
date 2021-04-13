@@ -7,12 +7,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/suite"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	. "github.com/vshn/espejo/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
@@ -36,7 +35,7 @@ func (ts *SyncConfigControllerTestSuite) BeforeTest(suiteName, testName string) 
 }
 
 func (ts *SyncConfigControllerTestSuite) Test_GivenNewSyncConfig_WhenReconcile_ThenCreateNewResources() {
-	cm := &v1.ConfigMap{
+	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-configmap",
@@ -68,7 +67,7 @@ func (ts *SyncConfigControllerTestSuite) Test_GivenNewSyncConfig_WhenReconcile_T
 }
 
 func (ts *SyncConfigControllerTestSuite) Test_GivenSyncConfigWithDelete_WhenReconcile_ThenDeleteResource() {
-	cm := &v1.ConfigMap{
+	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-configmap",
@@ -96,18 +95,6 @@ func (ts *SyncConfigControllerTestSuite) Test_GivenSyncConfigWithDelete_WhenReco
 	ts.Assert().Equal(int64(1), sc.Status.DeletedItemCount)
 	ts.Assert().Equal(int64(0), sc.Status.FailedItemCount)
 	ts.Assert().Equal(int64(0), sc.Status.SynchronizedItemCount)
-}
-
-func (ts *SyncConfigControllerTestSuite) Test_GivenNamespace_WhenNamespaceUpdates_ThenMapIntoExistingSyncConfig() {
-	sc := &SyncConfig{
-		ObjectMeta: toObjectMeta("test-syncconfig", ts.NS),
-	}
-	ns := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ts.NS}}
-	ts.EnsureResources(sc)
-	ts.FetchResource(ts.MapToNamespacedName(ns), ns)
-	result := ts.reconciler.Map(ns)
-	ts.Assert().NotEmpty(result)
-	ts.Assert().Contains(result, reconcile.Request{NamespacedName: ts.MapToNamespacedName(sc)})
 }
 
 func (ts *SyncConfigControllerTestSuite) Test_GivenInvalidConfig_WhenReconcile_ThenAbortAndUpdateStatus() {

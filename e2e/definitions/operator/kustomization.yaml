@@ -2,6 +2,7 @@ resources:
 - ../../../config/manager
 - ../../../config/rbac
 - ../../../config/namespace
+- clusterRoleBinding.yaml
 patchesStrategicMerge:
 - deployment.yaml
 namespace: espejo-system

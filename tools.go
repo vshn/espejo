@@ -1,4 +1,4 @@
-// +build tools
+//go:build tools
 
 // Package tools contains any runtime Go dependencies as imports.
 // Go modules will be forced to download and install them.

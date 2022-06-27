@@ -13,6 +13,7 @@ require (
 	k8s.io/apimachinery v0.24.2
 	k8s.io/client-go v0.24.2
 	sigs.k8s.io/controller-runtime v0.12.2
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20220623143344-ffd9ec8768b7
 	sigs.k8s.io/controller-tools v0.5.0
 	sigs.k8s.io/kustomize/kustomize/v3 v3.8.7
 )
@@ -90,6 +91,7 @@ require (
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/qri-io/starlib v0.4.2-0.20200213133954-ff2e8cd5ef8d // indirect
+	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cobra v1.4.0 // indirect
 	github.com/ulikunitz/xz v0.5.5 // indirect
 	github.com/xlab/treeprint v0.0.0-20181112141820-a009c3971eca // indirect

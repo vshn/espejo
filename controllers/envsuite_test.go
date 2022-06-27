@@ -4,7 +4,6 @@ package controllers
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 
 	"github.com/go-logr/logr"
@@ -47,16 +46,9 @@ func (ts *EnvTestSuite) SetupSuite() {
 
 	ts.Ctx = context.Background()
 
-	testbinDir := filepath.Join("..", "testbin", "bin")
-	info, err := os.Stat(testbinDir)
-	absTestbinDir, _ := filepath.Abs(testbinDir)
-	ts.Require().NoErrorf(err, "'%s' does not seem to exist. Make sure you run `make integration-test` before you run this test in your IDE.", absTestbinDir)
-	ts.Require().Truef(info.IsDir(), "'%s' does not seem to be a directory. Make sure you run `make integration-test` before you run this test in your IDE.", absTestbinDir)
-
 	testEnv := &envtest.Environment{
 		ErrorIfCRDPathMissing: true,
 		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "apiextensions.k8s.io", "v1", "base")},
-		BinaryAssetsDirectory: testbinDir,
 	}
 
 	config, err := testEnv.Start()

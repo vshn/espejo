@@ -8,15 +8,13 @@ CRD_FILE_LEGACY ?= espejo-crd-legacy.yaml
 CRD_ROOT_DIR ?= config/crd/apiextensions.k8s.io
 CRD_SPEC_VERSION ?= v1
 
-
 KIND_VERSION ?= 0.14.0
-KIND_NODE_VERSION ?= v1.20.0
 KIND ?= $(TESTBIN_DIR)/kind
 
 ENABLE_LEADER_ELECTION ?= false
 
-KIND_KUBECONFIG ?= $(TESTBIN_DIR)/kind-kubeconfig-$(KIND_NODE_VERSION)
-KIND_CLUSTER ?= espejo-$(KIND_NODE_VERSION)
+KIND_KUBECONFIG ?= $(TESTBIN_DIR)/kind-kubeconfig
+KIND_CLUSTER ?= espejo
 KIND_KUBECTL_ARGS ?=
 
 SHASUM ?= $(shell command -v sha1sum > /dev/null && echo "sha1sum" || echo "shasum -a1")

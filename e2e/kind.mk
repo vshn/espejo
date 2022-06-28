@@ -28,8 +28,7 @@ $(KIND_KUBECONFIG): $(KIND)
 	@mkdir -p debug/data/pvc-subject
 	$(KIND) create cluster \
 		--name $(KIND_CLUSTER) \
-		--wait=60s \
-		--image kindest/node:$(KIND_NODE_VERSION)
+		--wait=60s 
 	@kubectl version
 	@kubectl cluster-info
 

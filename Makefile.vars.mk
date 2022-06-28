@@ -9,7 +9,8 @@ CRD_ROOT_DIR ?= config/crd/apiextensions.k8s.io
 CRD_SPEC_VERSION ?= v1
 
 KIND_VERSION ?= 0.14.0
-KIND ?= $(TESTBIN_DIR)/kind
+KIND ?= go run sigs.k8s.io/kind
+
 
 ENABLE_LEADER_ELECTION ?= false
 

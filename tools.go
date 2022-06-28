@@ -11,4 +11,6 @@ import (
 	_ "sigs.k8s.io/kustomize/kustomize/v3"
 	// testing framework
 	_ "sigs.k8s.io/controller-runtime/tools/setup-envtest"
+	// To have Kind updated via Renovate
+	_ "sigs.k8s.io/kind"
 )

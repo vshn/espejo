@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	syncv1alpha1 "github.com/vshn/espejo/api/v1alpha1"
@@ -117,56 +118,49 @@ func (r *SyncConfigReconciler) DoReconcile(ctx context.Context, syncConfig *sync
 
 func (r *SyncConfigReconciler) syncItems(rc *ReconciliationContext, targetNamespace corev1.Namespace) {
 	for _, item := range rc.cfg.Spec.SyncItems {
-		unstructObj := item.DeepCopy()
-		unstructObj.SetNamespace(targetNamespace.Name)
+		obj := item.DeepCopy()
+		obj.SetNamespace(targetNamespace.Name)
+		replaceProjectName(targetNamespace.Name, obj.Object)
 
-		replaceProjectName(targetNamespace.Name, unstructObj.Object)
-
-		err := r.Client.Create(rc.ctx, unstructObj)
+		err := r.syncItem(rc, obj, rc.cfg.Spec.ForceRecreate)
 		if err != nil {
-			if !apierrors.IsAlreadyExists(err) {
-				rc.IncrementFailCount()
-				r.Log.Error(err, "Error creating", getLoggingKeysAndValues(unstructObj)...)
-				continue
-			}
-			existingObj := &unstructured.Unstructured{}
-			existingObj.SetKind(unstructObj.GetKind())
-			existingObj.SetAPIVersion(unstructObj.GetAPIVersion())
-			err = r.Client.Get(rc.ctx,
-				types.NamespacedName{
-					Name:      unstructObj.GetName(),
-					Namespace: unstructObj.GetNamespace()},
-				existingObj)
-			if err != nil {
-				rc.IncrementFailCount()
-				continue
-			}
-			unstructObj.SetResourceVersion(existingObj.GetResourceVersion())
-			err = r.Client.Update(rc.ctx, unstructObj)
-			if err != nil {
-				if apierrors.IsInvalid(err) && rc.cfg.Spec.ForceRecreate {
-					err = r.recreateObject(rc, unstructObj)
-					if err != nil {
-						rc.IncrementFailCount()
-						r.Log.Error(err, "Error recreating", getLoggingKeysAndValues(unstructObj)...)
-					}
-					rc.IncrementSyncCount()
-					r.Log.Info("Recreated", getLoggingKeysAndValues(unstructObj)...)
-				} else {
-					rc.IncrementFailCount()
-					r.Log.Error(err, "Error updating", getLoggingKeysAndValues(unstructObj)...)
-				}
-			} else {
-				rc.IncrementSyncCount()
-				r.Log.Info("Updated", getLoggingKeysAndValues(unstructObj)...)
-			}
+			r.Log.Error(err, "Error syncing object", getLoggingKeysAndValues(obj)...)
+			rc.IncrementFailCount()
 		} else {
 			rc.IncrementSyncCount()
-			r.Log.Info("Created", getLoggingKeysAndValues(unstructObj)...)
 		}
-
 	}
 	return
+}
+func (r *SyncConfigReconciler) syncItem(rc *ReconciliationContext, obj *unstructured.Unstructured, force bool) error {
+	l := r.Log.
+		WithValues(getLoggingKeysAndValues(obj)...).
+		WithValues(getLoggingKeysAndValuesForSyncConfig(rc.cfg)...)
+	l.V(2).Info("Syncing object")
+
+	found := &unstructured.Unstructured{}
+	found.SetKind(obj.GetKind())
+	found.SetAPIVersion(obj.GetAPIVersion())
+	found.SetName(obj.GetName())
+	found.SetNamespace(obj.GetNamespace())
+
+	op, err := controllerutil.CreateOrUpdate(rc.ctx, r.Client, found, func() error {
+		copyInto(found, obj)
+		return nil
+	})
+	if op != controllerutil.OperationResultNone {
+		l.Info("Modified object")
+	}
+
+	if apierrors.IsInvalid(err) && force {
+		err = r.recreateObject(rc, obj)
+		if err != nil {
+			return err
+		}
+		l.Info("Force recreated object")
+	}
+
+	return err
 }
 
 func (r *SyncConfigReconciler) deleteItems(rc *ReconciliationContext, targetNamespace corev1.Namespace) {

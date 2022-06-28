@@ -4,6 +4,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -111,8 +112,8 @@ func (c invalidUpdateClient) Update(ctx context.Context, obj client.Object, opts
 	return apierrors.NewInvalid(obj.GetObjectKind().GroupVersionKind().GroupKind(), obj.GetName(), nil)
 }
 func (c invalidUpdateClient) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
-  // Envtest cannot handle foreground deletions used in force recreate as no GC controller is running, so we drop options
-  return c.Client.Delete(ctx, obj)
+	// Envtest cannot handle foreground deletions used in force recreate as no GC controller is running, so we drop options
+	return c.Client.Delete(ctx, obj)
 }
 
 func (ts *SyncConfigControllerTestSuite) Test_GivenForceSyncConfig_WhenReconcile_ThenForceUpdateResources() {
@@ -204,4 +205,55 @@ func (ts *SyncConfigControllerTestSuite) Test_GivenInvalidConfig_WhenReconcile_T
 	ts.FetchResource(ts.MapToNamespacedName(sc), sc)
 	condition := meta.FindStatusCondition(sc.Status.Conditions, ConditionInvalid.String())
 	ts.Assert().NotNil(condition)
+}
+
+type readonlyClient struct {
+	client.Client
+}
+
+func (nu readonlyClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+	return fmt.Errorf("No Update expected")
+}
+func (nu readonlyClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+	return fmt.Errorf("No Create expected")
+}
+
+func (ts *SyncConfigControllerTestSuite) Test_GivenSyncConfigWithNoDiff_WhenReconcile_ThenNoOps() {
+	cm := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-configmap",
+		},
+		Data: map[string]string{"PROJECT_NAME": "foo"},
+	}
+	sc := &SyncConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: ts.NS},
+		Spec: SyncConfigSpec{
+			SyncItems:         []unstructured.Unstructured{toUnstructured(ts.T(), cm)},
+			NamespaceSelector: &NamespaceSelector{MatchNames: []string{ts.NS}},
+		},
+	}
+	cm.Namespace = ts.NS
+	ts.EnsureResources(cm, sc)
+	reconciler := &SyncConfigReconciler{
+		Client: readonlyClient{
+			ts.reconciler.Client,
+		},
+		Log:    ts.reconciler.Log,
+		Scheme: ts.reconciler.Scheme,
+	}
+	result, err := reconciler.Reconcile(ts.Ctx, ctrl.Request{
+		NamespacedName: ts.MapToNamespacedName(sc),
+	})
+	ts.Require().NoError(err)
+	ts.Assert().NotNil(result)
+
+	ts.FetchResource(ts.MapToNamespacedName(cm), cm)
+	ts.Assert().Equal("foo", cm.Data["PROJECT_NAME"])
+
+	ts.FetchResource(ts.MapToNamespacedName(sc), sc)
+	ts.Assert().Equal(int64(0), sc.Status.DeletedItemCount)
+	ts.Assert().Equal(int64(0), sc.Status.FailedItemCount)
+	ts.Assert().Equal(int64(1), sc.Status.SynchronizedItemCount)
+
 }

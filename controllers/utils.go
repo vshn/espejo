@@ -88,3 +88,23 @@ func namespaceFromString(namespace string) v1.Namespace {
 		ObjectMeta: v12.ObjectMeta{Name: namespace},
 	}
 }
+
+// copyInto overwrites all non system managed fields of dst with the fields in src.
+// This can be used to update dst to the desired version src without creating a diff by removing system managed fields such as UID or SelfLink.
+func copyInto(dst, src *unstructured.Unstructured) {
+	tmp := dst.DeepCopy()
+	src.DeepCopyInto(dst)
+
+	dst.SetResourceVersion(tmp.GetResourceVersion())
+
+	dst.SetUID(tmp.GetUID())
+	dst.SetSelfLink(tmp.GetSelfLink())
+	dst.SetGeneration(tmp.GetGeneration())
+
+	dst.SetManagedFields(tmp.GetManagedFields())
+	dst.SetOwnerReferences(tmp.GetOwnerReferences())
+
+	dst.SetCreationTimestamp(tmp.GetCreationTimestamp())
+	dst.SetDeletionTimestamp(tmp.GetDeletionTimestamp())
+	dst.SetDeletionGracePeriodSeconds(tmp.GetDeletionGracePeriodSeconds())
+}

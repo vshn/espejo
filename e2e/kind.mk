@@ -18,17 +18,12 @@ kind-clean: ## Remove the kind Cluster
 ### Artifacts
 ###
 
-$(KIND): export KUBECONFIG = $(KIND_KUBECONFIG)
-$(KIND): $(testbin_created)
-	curl $(curl_args) --output "$(KIND)" "https://kind.sigs.k8s.io/dl/v$(KIND_VERSION)/kind-$$(uname)-amd64"
-	@chmod +x $(KIND)
-
 $(KIND_KUBECONFIG): export KUBECONFIG = $(KIND_KUBECONFIG)
-$(KIND_KUBECONFIG): $(KIND)
+$(KIND_KUBECONFIG):
 	@mkdir -p debug/data/pvc-subject
 	$(KIND) create cluster \
 		--name $(KIND_CLUSTER) \
-		--image kindest/node:$(KIND_NODE_VERSION)
+		--wait=60s 
 	@kubectl version
 	@kubectl cluster-info
 

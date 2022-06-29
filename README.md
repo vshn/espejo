@@ -48,12 +48,6 @@ To run e2e tests, execute:
 make e2e-test
 ```
 
-To test compatibility of k8up with OpenShift 3.11 (or any other specific K8s version), you can run end-to-end tests like this:
-
-```bash
-make e2e-test -e CRD_SPEC_VERSION=v1beta1 -e KIND_NODE_VERSION=v1.13.12
-```
-
 [build]: https://github.com/vshn/espejo/actions?query=workflow%3ATest
 [releases]: https://github.com/vshn/espejo/releases
 [license]: https://github.com/vshn/espejo/blob/master/LICENSE

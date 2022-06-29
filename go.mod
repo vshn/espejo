@@ -7,13 +7,13 @@ require (
 	github.com/go-logr/zapr v1.2.0
 	github.com/knadh/koanf v0.16.0
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.8.0
 	go.uber.org/zap v1.21.0
 	k8s.io/api v0.24.2
 	k8s.io/apimachinery v0.24.2
 	k8s.io/client-go v0.24.2
 	sigs.k8s.io/controller-runtime v0.12.2
-	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20220623143344-ffd9ec8768b7
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20220628190934-17893a8fae1e
 	sigs.k8s.io/controller-tools v0.5.0
 	sigs.k8s.io/kind v0.14.0
 	sigs.k8s.io/kustomize/kustomize/v3 v3.10.0
@@ -112,7 +112,7 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.24.2 // indirect
 	k8s.io/component-base v0.24.2 // indirect
 	k8s.io/klog/v2 v2.60.1 // indirect

@@ -4,11 +4,11 @@ go 1.18
 
 require (
 	github.com/go-logr/logr v1.3.0
-	github.com/go-logr/zapr v1.2.3
+	github.com/go-logr/zapr v1.2.4
 	github.com/knadh/koanf v1.5.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
-	go.uber.org/zap v1.21.0
+	go.uber.org/zap v1.24.0
 	k8s.io/api v0.24.2
 	k8s.io/apimachinery v0.24.2
 	k8s.io/client-go v0.24.2

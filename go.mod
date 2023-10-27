@@ -3,7 +3,7 @@ module github.com/vshn/espejo
 go 1.18
 
 require (
-	github.com/go-logr/logr v1.2.3
+	github.com/go-logr/logr v1.3.0
 	github.com/go-logr/zapr v1.2.3
 	github.com/knadh/koanf v1.5.0
 	github.com/spf13/pflag v1.0.5

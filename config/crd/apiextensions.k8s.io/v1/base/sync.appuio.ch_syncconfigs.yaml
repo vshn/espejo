@@ -12,6 +12,7 @@ spec:
     listKind: SyncConfigList
     plural: syncconfigs
     singular: syncconfig
+  preserveUnknownFields: false
   scope: Namespaced
   versions:
   - additionalPrinterColumns:

@@ -31,7 +31,7 @@ test: ## Run tests
 # `--insecure-port` and `--insecure-bind-address` flags is now deprecated,
 # but envtest was not updated accordingly.
 #integration-test: export ENVTEST_K8S_VERSION = 1.20.2
-integration-test: export ENVTEST_K8S_VERSION = 1.19.2
+integration-test: export ENVTEST_K8S_VERSION = 1.27.x
 integration-test: export KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT = $(INTEGRATION_TEST_DEBUG_OUTPUT)
 integration-test: ## Run integration tests with envtest
 	$(setup-envtest) use '$(ENVTEST_K8S_VERSION)!'
@@ -62,12 +62,10 @@ deploy: generate ## Deploy controller in the configured Kubernetes cluster in ~/
 .PHONY: generate
 generate: ## Generate manifests e.g. CRD, RBAC etc.
 	@CRD_ROOT_DIR="$(CRD_ROOT_DIR)" CRD_DOCS_REF_PATH="$(CRD_DOCS_REF_PATH)" go generate -tags=generate generate.go
-	@rm config/*.yaml
 
 .PHONY: crd
 crd: generate ## Generate CRD to file
 	$(KUSTOMIZE) build $(CRD_ROOT_DIR)/v1 > $(CRD_FILE)
-	$(KUSTOMIZE) build $(CRD_ROOT_DIR)/v1beta1 > $(CRD_FILE_LEGACY)
 
 .PHONY: fmt
 fmt: ## Run go fmt against code

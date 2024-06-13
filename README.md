@@ -38,8 +38,6 @@ The Operator is implemented with the [Operator SDK](https://github.com/operator-
 
 ### Run E2E tests
 
-Espejo supports both OpenShift 3.11 clusters and newer Kubernetes clusters 1.16+.
-However, to support OpenShift 3.11 a legacy CRD definition with `apiextensions.k8s.io/v1beta1` is needed, while K8s 1.22+ only supports `apiextensions.k8s.io/v1`.
 You need `node` and `npm` to run the tests, as it runs with [DETIK][detik].
 
 To run e2e tests, execute:

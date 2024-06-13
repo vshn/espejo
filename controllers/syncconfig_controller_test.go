@@ -12,11 +12,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/vshn/espejo/api/v1alpha1"
+	syncv1alpha1 "github.com/vshn/espejo/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -48,7 +48,7 @@ func (ts *SyncConfigControllerTestSuite) Test_GivenNewSyncConfig_WhenReconcile_T
 	sc := &SyncConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: ts.NS},
 		Spec: SyncConfigSpec{
-			SyncItems:         []unstructured.Unstructured{toUnstructured(ts.T(), cm)},
+			SyncItems:         []syncv1alpha1.Manifest{syncv1alpha1.Manifest{toUnstructured(ts.T(), cm)}},
 			NamespaceSelector: &NamespaceSelector{MatchNames: []string{ts.NS}},
 		},
 	}
@@ -80,7 +80,7 @@ func (ts *SyncConfigControllerTestSuite) Test_GivenSyncConfig_WhenReconcile_Then
 	sc := &SyncConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: ts.NS},
 		Spec: SyncConfigSpec{
-			SyncItems:         []unstructured.Unstructured{toUnstructured(ts.T(), cm)},
+			SyncItems:         []syncv1alpha1.Manifest{syncv1alpha1.Manifest{toUnstructured(ts.T(), cm)}},
 			NamespaceSelector: &NamespaceSelector{MatchNames: []string{ts.NS}},
 		},
 	}
@@ -127,7 +127,7 @@ func (ts *SyncConfigControllerTestSuite) Test_GivenForceSyncConfig_WhenReconcile
 	sc := &SyncConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: ts.NS},
 		Spec: SyncConfigSpec{
-			SyncItems:         []unstructured.Unstructured{toUnstructured(ts.T(), cm)},
+			SyncItems:         []syncv1alpha1.Manifest{syncv1alpha1.Manifest{toUnstructured(ts.T(), cm)}},
 			NamespaceSelector: &NamespaceSelector{MatchNames: []string{ts.NS}},
 			ForceRecreate:     true,
 		},
@@ -229,7 +229,7 @@ func (ts *SyncConfigControllerTestSuite) Test_GivenSyncConfigWithNoDiff_WhenReco
 	sc := &SyncConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-syncconfig", Namespace: ts.NS},
 		Spec: SyncConfigSpec{
-			SyncItems:         []unstructured.Unstructured{toUnstructured(ts.T(), cm)},
+			SyncItems:         []syncv1alpha1.Manifest{syncv1alpha1.Manifest{toUnstructured(ts.T(), cm)}},
 			NamespaceSelector: &NamespaceSelector{MatchNames: []string{ts.NS}},
 		},
 	}

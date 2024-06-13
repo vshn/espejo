@@ -119,12 +119,12 @@ func (r *SyncConfigReconciler) DoReconcile(ctx context.Context, syncConfig *sync
 func (r *SyncConfigReconciler) syncItems(rc *ReconciliationContext, targetNamespace corev1.Namespace) {
 	for _, item := range rc.cfg.Spec.SyncItems {
 		obj := item.DeepCopy()
-		obj.SetNamespace(targetNamespace.Name)
-		replaceProjectName(targetNamespace.Name, obj.Object)
+		obj.Unstructured.SetNamespace(targetNamespace.Name)
+		replaceProjectName(targetNamespace.Name, obj.Unstructured.Object)
 
-		err := r.syncItem(rc, obj, rc.cfg.Spec.ForceRecreate)
+		err := r.syncItem(rc, &obj.Unstructured, rc.cfg.Spec.ForceRecreate)
 		if err != nil {
-			r.Log.Error(err, "Error syncing object", getLoggingKeysAndValues(obj)...)
+			r.Log.Error(err, "Error syncing object", getLoggingKeysAndValues(&obj.Unstructured)...)
 			rc.IncrementFailCount()
 		} else {
 			rc.IncrementSyncCount()

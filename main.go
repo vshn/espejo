@@ -11,8 +11,11 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/providers/posflag"
@@ -60,12 +63,19 @@ func main() {
 	setupLogger()
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: config.MetricsAddr,
-		Port:               9443,
-		LeaderElection:     config.LeaderElection,
-		LeaderElectionID:   "bd39f6a0.appuio.ch",
-		Namespace:          getWatchNamespace(),
+		Scheme: scheme,
+		Metrics: server.Options{
+			BindAddress: config.MetricsAddr,
+		},
+		LeaderElection:   config.LeaderElection,
+		LeaderElectionID: "bd39f6a0.appuio.ch",
+		// Limit the manager to only watch the given namespace
+		NewCache: func(config *rest.Config, opts cache.Options) (cache.Cache, error) {
+			opts.DefaultNamespaces = map[string]cache.Config{
+				getWatchNamespace(): {},
+			}
+			return cache.New(config, opts)
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

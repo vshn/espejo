@@ -75,7 +75,7 @@ func Test_ReconciliationContext_validateSpec(t *testing.T) {
 					NamespaceSelector: &syncv1alpha1.NamespaceSelector{
 						MatchNames: []string{"["},
 					},
-					SyncItems: []unstructured.Unstructured{toUnstructured(t, &corev1.ConfigMap{})},
+					SyncItems: []syncv1alpha1.Manifest{{Unstructured: toUnstructured(t, &corev1.ConfigMap{})}},
 				},
 			},
 			containsErrMessage: "error parsing regexp",
@@ -88,7 +88,7 @@ func Test_ReconciliationContext_validateSpec(t *testing.T) {
 						IgnoreNames: []string{"["},
 						MatchNames:  []string{".*"},
 					},
-					SyncItems: []unstructured.Unstructured{toUnstructured(t, &corev1.ConfigMap{})},
+					SyncItems: []syncv1alpha1.Manifest{{Unstructured: toUnstructured(t, &corev1.ConfigMap{})}},
 				},
 			},
 			containsErrMessage: "error parsing regexp",

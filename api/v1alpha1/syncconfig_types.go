@@ -6,6 +6,13 @@ import (
 )
 
 type (
+	// Manifest is an unstructured kubernetes object with kube-builder validation and pruning settings applied.
+	Manifest struct {
+		// +kubebuilder:pruning:PreserveUnknownFields
+		// +kubebuilder:validation:EmbeddedResource
+		unstructured.Unstructured `json:",inline"`
+	}
+
 	// SyncConfigSpec defines the desired state of SyncConfig
 	SyncConfigSpec struct {
 		// ForceRecreate defines if objects should be deleted and recreated if updates fails
@@ -13,11 +20,8 @@ type (
 		// NamespaceSelector defines which namespaces should be targeted
 		NamespaceSelector *NamespaceSelector `json:"namespaceSelector,omitempty"`
 
-		// +kubebuilder:pruning:PreserveUnknownFields
-		// +kubebuilder:validation:EmbeddedResource
-
 		// SyncItems lists items to be synced to targeted namespaces
-		SyncItems []unstructured.Unstructured `json:"syncItems,omitempty"`
+		SyncItems []Manifest `json:"syncItems,omitempty"`
 		// DeleteItems lists items to be deleted from targeted namespaces
 		DeleteItems []DeleteMeta `json:"deleteItems,omitempty"`
 	}

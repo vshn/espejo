@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	. "github.com/vshn/espejo/api/v1alpha1"
+	syncv1alpha1 "github.com/vshn/espejo/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -91,7 +91,7 @@ func (ts *NamespaceControllerTestSuite) givenSyncConfig(matchNames string) (*cor
 	sc := &SyncConfig{
 		ObjectMeta: toObjectMeta("test-syncconfig", ts.NS),
 		Spec: SyncConfigSpec{
-			SyncItems:         []unstructured.Unstructured{toUnstructured(ts.T(), cm)},
+			SyncItems:         []syncv1alpha1.Manifest{syncv1alpha1.Manifest{toUnstructured(ts.T(), cm)}},
 			NamespaceSelector: &NamespaceSelector{MatchNames: []string{matchNames}},
 		},
 	}

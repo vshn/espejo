@@ -12,10 +12,10 @@ require (
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/zap v1.27.0
 	k8s.io/api v0.30.2
-	k8s.io/apimachinery v0.30.2
+	k8s.io/apimachinery v0.31.0-alpha.1
 	k8s.io/client-go v0.30.2
 	sigs.k8s.io/controller-runtime v0.18.4
-	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20240608161558-1f5b39fa59d1
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20240701091323-e28a8424d69d
 	sigs.k8s.io/controller-tools v0.15.0
 	sigs.k8s.io/kind v0.23.0
 	sigs.k8s.io/kustomize/kustomize/v5 v5.4.2
@@ -33,6 +33,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/fatih/color v1.17.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.7.0-beta // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
@@ -71,6 +72,7 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cobra v1.8.0 // indirect
+	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.starlark.net v0.0.0-20240520160348-046347dcd104 // indirect
 	go.uber.org/multierr v1.11.0 // indirect

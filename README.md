@@ -1,4 +1,4 @@
-# [Espejo](https://es.wikipedia.org/wiki/Espejo) (object-syncer)
+# Deprecated: [Espejo](https://es.wikipedia.org/wiki/Espejo) (object-syncer)
 
 [![Build](https://img.shields.io/github/workflow/status/vshn/espejo/Test)][build]
 ![Go version](https://img.shields.io/github/go-mod/go-version/vshn/espejo)
@@ -8,6 +8,8 @@
 [![GitHub downloads](https://img.shields.io/github/downloads/vshn/espejo/total)][releases]
 [![Docker image](https://img.shields.io/docker/pulls/vshn/espejo)][dockerhub]
 [![License](https://img.shields.io/github/license/vshn/espejo)][license]
+
+⚠️ This project has been superseded by [espejote](https://github.com/vshn/espejote) and is no longer actively developed. Espejote is more flexible, performs better, and is proven in production.
 
 The espejo tool (which means 'mirror' in Spanish) syncs objects from a SyncConfig CRD to multiple namespaces. The idea is to replace OpenShift's [project templates](https://docs.openshift.com/container-platform/3.11/admin_guide/managing_projects.html#modifying-the-template-for-new-projects) with a more flexible and robust solution.
 

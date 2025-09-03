@@ -2,7 +2,7 @@ module github.com/vshn/espejo
 
 go 1.22.0
 
-toolchain go1.22.4
+toolchain go1.25.1
 
 require (
 	github.com/go-logr/logr v1.4.2
